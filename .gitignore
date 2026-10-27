@@ -1,0 +1,26 @@
+# .NET build output
+bin/
+obj/
+publish/
+
+# Per-environment app settings that may contain real secrets (production,
+# a developer's local overrides, etc). appsettings.json and
+# appsettings.Development.json are checked in deliberately: no secrets in
+# either, just placeholders and local settings.
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+# Local development database (SQLite, Development only)
+*.db
+*.db-shm
+*.db-wal
+
+# User-specific / IDE files
+.vs/
+*.user
+*.suo
+
+# OS cruft
+.DS_Store
+Thumbs.db

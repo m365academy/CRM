@@ -1,0 +1,88 @@
+@model ListPage<Deal>
+@inject Lookups Lookups
+@{
+    var q = Context.Request.Query;
+    string stage = q.ContainsKey("stage") ? q["stage"].ToString() : "open";
+    var courses = await Lookups.CoursesAsync();
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <span class="eyebrow">Sales</span>
+      <h1>Deals</h1>
+      <p>Every opportunity, open and closed.</p>
+    </div>
+    <div class="page-actions">
+      <a href="/deals/new" class="btn btn-light btn-sm">+ New deal</a>
+      <a href="/deals" class="btn btn-outline btn-sm">Board view</a>
+      <a href="/deals/export@(Context.Request.QueryString)" class="btn btn-outline btn-sm">Export CSV</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <form method="get" action="/deals/list" class="toolbar">
+      <div class="field">
+        <label for="q">Search</label>
+        <input type="search" id="q" name="q" value="@q["q"]" placeholder="Title, organisation, PO number" />
+      </div>
+      <div class="field">
+        <label for="stage">Stage</label>
+        <select id="stage" name="stage" data-autosubmit>
+          <option value="open" selected="@(stage == "open")">Open</option>
+          <option value="all" selected="@(stage == "all")">All</option>
+          @foreach (var s in Enum.GetValues<DealStage>())
+          {
+            <option value="@s" selected="@(stage == s.ToString())">@Ui.Display(s)</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="courseId">Course</label>
+        <select id="courseId" name="courseId" data-autosubmit>
+          <option value="">Any course</option>
+          @foreach (var c in courses)
+          {
+            <option value="@c.Id" selected="@(q["courseId"] == c.Id.ToString())">@c.Code</option>
+          }
+        </select>
+      </div>
+      <partial name="_OwnerFilter" model="@q["owner"].ToString()" />
+      <button type="submit" class="btn btn-ghost btn-sm">Apply</button>
+    </form>
+
+    @if (Model.Items.Count == 0)
+    {
+      <div class="note-card">No deals match.</div>
+    }
+    else
+    {
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Deal</th><th>Organisation</th><th>Course</th><th>Stage</th><th class="num">Value</th><th class="num">Prob.</th><th>Expected close</th><th>Owner</th></tr></thead>
+          <tbody>
+            @foreach (var d in Model.Items)
+            {
+              var late = d.IsOpen && d.ExpectedCloseDate < Ui.TodayUk;
+              <tr>
+                <td><a href="/deals/@d.Id">@d.Title</a><span class="sub">@d.Delegates delegate@(d.Delegates == 1 ? "" : "s") &middot; @Ui.Display(d.DeliveryFormat)</span></td>
+                <td>@if (d.Organisation is not null) { <a href="/organisations/@d.Organisation.Id">@d.Organisation.Name</a> }</td>
+                <td>@(d.Course?.Code ?? "-")</td>
+                <td><span class="badge @Ui.BadgeClass(d.Stage)">@Ui.Display(d.Stage)</span></td>
+                <td class="num">@Ui.Money(d.Value)</td>
+                <td class="num">@d.Probability%</td>
+                <td class="@(late ? "is-overdue" : "")">@(d.ClosedAtUtc is not null ? "Closed " + Ui.Date(d.ClosedAtUtc.Value) : Ui.Date(d.ExpectedCloseDate))</td>
+                <td>@(d.Owner?.DisplayName ?? "Unassigned")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <partial name="_Pager" model="Model" />
+    }
+  </div>
+</section>

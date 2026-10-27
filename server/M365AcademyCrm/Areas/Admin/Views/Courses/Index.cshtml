@@ -1,0 +1,56 @@
+@model List<Course>
+@{
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb">Admin / Course catalogue</div>
+    <span class="eyebrow">CRM admin</span>
+    <h1>Course catalogue</h1>
+    <p>List prices (ex VAT) used to value deals and fill in quote lines. Prices start at &pound;0 - set them here before relying on catalogue pricing.</p>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Code</th><th>Title</th><th>Category</th><th>Duration</th><th class="num">Per delegate</th><th class="num">Private cohort</th><th>Active</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var c in Model)
+          {
+            <tr>
+              <td><strong>@c.Code</strong></td>
+              <td>@c.Title</td>
+              <td>@Ui.Display(c.Category)</td>
+              <td>@c.Duration</td>
+              <td class="num">@Ui.MoneyExact(c.PricePerDelegate)</td>
+              <td class="num">@(c.PrivateCoursePrice == 0 ? "-" : Ui.MoneyExact(c.PrivateCoursePrice))</td>
+              <td>@if (c.IsActive) { <span class="badge badge-good">Active</span> } else { <span class="badge badge-neutral">Retired</span> }</td>
+              <td>
+                <details class="inline-edit">
+                  <summary class="btn btn-ghost btn-xs">Edit</summary>
+                  <div class="panel" style="position:absolute; right:1.5rem; z-index:5; width:min(560px, 90vw); margin-top:0.5rem;">
+                    <partial name="_CourseForm" model="c" />
+                    <form method="post" action="/admin/courses/@c.Id/delete" data-confirm="Delete @c.Code? Only possible if nothing uses it." style="margin-top:0.75rem;">
+                      @Html.AntiForgeryToken()
+                      <button type="submit" class="btn btn-danger btn-xs">Delete</button>
+                    </form>
+                  </div>
+                </details>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel form-panel" style="margin-top:1.5rem;">
+      <div class="panel-header"><h2>Add a course or product</h2></div>
+      <partial name="_CourseForm" model="new Course()" />
+    </div>
+  </div>
+</section>

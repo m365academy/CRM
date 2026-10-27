@@ -1,0 +1,25 @@
+@model List<Deal>
+@if (Model.Count == 0)
+{
+  <p class="empty" style="padding:0 1.4rem 1.2rem;">No deals yet.</p>
+}
+else
+{
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>Deal</th><th>Course</th><th>Stage</th><th class="num">Value</th><th>Expected / closed</th></tr></thead>
+      <tbody>
+        @foreach (var d in Model)
+        {
+          <tr>
+            <td><a href="/deals/@d.Id">@d.Title</a><span class="sub">@d.Delegates delegate@(d.Delegates == 1 ? "" : "s") &middot; @Ui.Display(d.DeliveryFormat)</span></td>
+            <td>@(d.Course?.Code ?? "-")</td>
+            <td><span class="badge @Ui.BadgeClass(d.Stage)">@Ui.Display(d.Stage)</span></td>
+            <td class="num">@Ui.Money(d.Value)</td>
+            <td>@(d.ClosedAtUtc is not null ? Ui.Date(d.ClosedAtUtc.Value) : Ui.Date(d.ExpectedCloseDate))</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

@@ -1,0 +1,24 @@
+@model List<Quote>
+@if (Model.Count == 0)
+{
+  <p class="empty" style="padding:0 1.4rem 1.2rem;">No quotes yet.</p>
+}
+else
+{
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>Quote</th><th>Status</th><th>Issued</th><th class="num">Total ex VAT</th></tr></thead>
+      <tbody>
+        @foreach (var q in Model)
+        {
+          <tr>
+            <td><a href="/quotes/@q.Id">@q.Number</a><span class="sub">@q.Title</span></td>
+            <td><span class="badge @Ui.BadgeClass(q.Status)">@q.Status</span></td>
+            <td>@Ui.Date(q.IssueDate)</td>
+            <td class="num">@Ui.MoneyExact(q.NetTotal)</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

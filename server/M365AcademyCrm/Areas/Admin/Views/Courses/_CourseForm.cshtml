@@ -1,0 +1,47 @@
+@model Course
+@{
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var p = Model.Id == 0 ? "new" : Model.Id.ToString();
+}
+<form method="post" action="/admin/courses/save" class="form-grid">
+  @Html.AntiForgeryToken()
+  <input type="hidden" name="Id" value="@Model.Id" />
+  <div class="form-row">
+    <div class="field">
+      <label for="code-@p">Code</label>
+      <input id="code-@p" name="Code" value="@Model.Code" required maxlength="30" placeholder="e.g. SC-401" />
+    </div>
+    <div class="field">
+      <label for="title-@p">Title</label>
+      <input id="title-@p" name="Title" value="@Model.Title" required maxlength="200" />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="field">
+      <label for="cat-@p">Category</label>
+      <select id="cat-@p" name="Category">
+        @foreach (var c in Enum.GetValues<CourseCategory>())
+        {
+          <option value="@c" selected="@(Model.Category == c)">@Ui.Display(c)</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="dur-@p">Duration</label>
+      <input id="dur-@p" name="Duration" value="@Model.Duration" maxlength="60" placeholder="e.g. 4 days" />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="field">
+      <label for="ppd-@p">Price per delegate (&pound;, public course)</label>
+      <input id="ppd-@p" name="PricePerDelegate" type="number" min="0" step="0.01" value="@Model.PricePerDelegate.ToString("0.00", inv)" />
+    </div>
+    <div class="field">
+      <label for="pcp-@p">Private cohort price (&pound;, 0 = per delegate)</label>
+      <input id="pcp-@p" name="PrivateCoursePrice" type="number" min="0" step="0.01" value="@Model.PrivateCoursePrice.ToString("0.00", inv)" />
+    </div>
+  </div>
+  <label class="field-check"><input type="checkbox" name="IsActive" value="true" checked="@(Model.Id == 0 || Model.IsActive)" /> Active (offered in pickers)</label>
+  <input type="hidden" name="IsActive" value="false" />
+  <div><button type="submit" class="btn btn-primary btn-sm">@(Model.Id == 0 ? "Add" : "Save")</button></div>
+</form>

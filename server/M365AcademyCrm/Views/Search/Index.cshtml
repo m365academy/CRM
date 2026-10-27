@@ -1,0 +1,58 @@
+@model SearchResults
+
+<section class="page-header compact">
+  <div class="container">
+    <span class="eyebrow">Search</span>
+    <h1>@(string.IsNullOrEmpty(Model.Query) ? "Search the CRM" : $"Results for “{Model.Query}”")</h1>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <form method="get" action="/search" class="toolbar">
+      <div class="field" style="flex:1; max-width:520px;">
+        <label for="search-q">Name, email, phone, company, deal, quote number&hellip;</label>
+        <input type="search" id="search-q" name="q" value="@Model.Query" autofocus />
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Search</button>
+    </form>
+
+    @if (!string.IsNullOrEmpty(Model.Query) && Model.Total == 0)
+    {
+      <div class="note-card">Nothing found. Try part of a name, an email domain, or a quote number.</div>
+    }
+
+    <div class="dash-grid">
+      @if (Model.Leads.Count > 0)
+      {
+        <div class="panel"><div class="panel-header"><h2>Leads</h2></div>
+          <ul class="task-list">@foreach (var l in Model.Leads) { <li><span><a href="/leads/@l.Id">@l.Name</a> <span class="small muted">@(l.Company ?? l.Email)</span></span><span class="badge @Ui.BadgeClass(l.Status)">@l.Status</span></li> }</ul>
+        </div>
+      }
+      @if (Model.Contacts.Count > 0)
+      {
+        <div class="panel"><div class="panel-header"><h2>Contacts</h2></div>
+          <ul class="task-list">@foreach (var c in Model.Contacts) { <li><span><a href="/contacts/@c.Id">@c.FullName</a> <span class="small muted">@(c.Organisation?.Name ?? c.Email)</span></span></li> }</ul>
+        </div>
+      }
+      @if (Model.Organisations.Count > 0)
+      {
+        <div class="panel"><div class="panel-header"><h2>Organisations</h2></div>
+          <ul class="task-list">@foreach (var o in Model.Organisations) { <li><span><a href="/organisations/@o.Id">@o.Name</a> <span class="small muted">@o.City</span></span><span class="badge @Ui.BadgeClass(o.Type)">@o.Type</span></li> }</ul>
+        </div>
+      }
+      @if (Model.Deals.Count > 0)
+      {
+        <div class="panel"><div class="panel-header"><h2>Deals</h2></div>
+          <ul class="task-list">@foreach (var d in Model.Deals) { <li><span><a href="/deals/@d.Id">@d.Title</a> <span class="small muted">@d.Organisation?.Name &middot; @Ui.Money(d.Value)</span></span><span class="badge @Ui.BadgeClass(d.Stage)">@Ui.Display(d.Stage)</span></li> }</ul>
+        </div>
+      }
+      @if (Model.Quotes.Count > 0)
+      {
+        <div class="panel"><div class="panel-header"><h2>Quotes</h2></div>
+          <ul class="task-list">@foreach (var x in Model.Quotes) { <li><span><a href="/quotes/@x.Id">@x.Number</a> <span class="small muted">@x.Title</span></span><span class="badge @Ui.BadgeClass(x.Status)">@x.Status</span></li> }</ul>
+        </div>
+      }
+    </div>
+  </div>
+</section>

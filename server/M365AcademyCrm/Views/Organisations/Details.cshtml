@@ -1,0 +1,100 @@
+@model Organisation
+@{
+    var quotes = (List<Quote>)ViewBag.Quotes;
+    var activities = (List<Activity>)ViewBag.Activities;
+    var won = Model.Deals.Where(d => d.Stage == DealStage.Won).ToList();
+    var open = Model.Deals.Where(d => d.IsOpen).ToList();
+    var address = new[] { Model.AddressLine1, Model.AddressLine2, Model.City, Model.Postcode, Model.Country }.Where(s => !string.IsNullOrWhiteSpace(s));
+    var activityPanel = new ActivityPanelModel { Items = activities, OrganisationId = Model.Id, ReturnUrl = $"/organisations/{Model.Id}", EmailTo = Model.Email, EmailToName = Model.Name };
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <div class="breadcrumb"><a href="/organisations">Organisations</a> / @Model.Name</div>
+      <h1>@Model.Name <span class="badge @Ui.BadgeClass(Model.Type)">@Model.Type</span></h1>
+      <p>@(Model.Industry ?? "Industry not set")@(Model.Size is null ? "" : $" · {Model.Size} employees")@(Model.City is null ? "" : $" · {Model.City}")</p>
+    </div>
+    <div class="page-actions">
+      <a href="/deals/new?organisationId=@Model.Id" class="btn btn-light btn-sm">+ Deal</a>
+      <a href="/contacts/new?organisationId=@Model.Id" class="btn btn-outline btn-sm">+ Contact</a>
+      <a href="/quotes/new?organisationId=@Model.Id" class="btn btn-outline btn-sm">+ Quote</a>
+      <a href="/organisations/@Model.Id/edit" class="btn btn-outline btn-sm">Edit</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="stat-label">Won to date</div><div class="stat-value">@Ui.Money(won.Sum(d => d.Value))</div><div class="stat-sub">@won.Count deal@(won.Count == 1 ? "" : "s") &middot; @won.Sum(d => d.Delegates) delegates</div></div>
+      <div class="stat-tile"><div class="stat-label">Open pipeline</div><div class="stat-value">@Ui.Money(open.Sum(d => d.Value))</div><div class="stat-sub">@open.Count open deal@(open.Count == 1 ? "" : "s")</div></div>
+      <div class="stat-tile"><div class="stat-label">Contacts</div><div class="stat-value">@Model.Contacts.Count</div><div class="stat-sub">Owner: @(Model.Owner?.DisplayName ?? "Unassigned")</div></div>
+    </div>
+
+    <div class="two-col">
+      <div>
+        <div class="panel">
+          <div class="panel-header"><h2>Details</h2></div>
+          <dl class="detail-list">
+            <dt>Website</dt><dd>@if (Model.Website is not null && Uri.TryCreate(Model.Website, UriKind.Absolute, out var site) && (site.Scheme == "https" || site.Scheme == "http")) { <a href="@site" target="_blank" rel="noopener noreferrer">@Model.Website</a> } else { @(Model.Website ?? "-") }</dd>
+            <dt>Phone</dt><dd>@if (Model.Phone is not null) { <a href="tel:@Model.Phone">@Model.Phone</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Email</dt><dd>@if (Model.Email is not null) { <a href="mailto:@Model.Email">@Model.Email</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Address</dt><dd>@(address.Any() ? string.Join(", ", address) : "-")</dd>
+          </dl>
+          @if (!string.IsNullOrWhiteSpace(Model.Notes))
+          {
+            <div class="prewrap note-card" style="margin-top:1rem;">@Model.Notes</div>
+          }
+        </div>
+
+        <div class="panel panel-flush">
+          <div class="panel-header"><h2>Contacts</h2><a href="/contacts/new?organisationId=@Model.Id" class="small" style="margin-right:1.4rem;">+ Add</a></div>
+          @if (Model.Contacts.Count == 0)
+          {
+            <p class="empty" style="padding:0 1.4rem 1.2rem;">No contacts yet.</p>
+          }
+          else
+          {
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead><tr><th>Name</th><th>Job title</th><th>Email</th><th>Phone</th></tr></thead>
+                <tbody>
+                  @foreach (var c in Model.Contacts.OrderBy(c => c.FirstName))
+                  {
+                    <tr>
+                      <td><a href="/contacts/@c.Id">@c.FullName</a></td>
+                      <td>@c.JobTitle</td>
+                      <td>@if (c.Email is not null) { <a href="mailto:@c.Email">@c.Email</a> }</td>
+                      <td>@(c.Phone ?? c.Mobile)</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+
+        <div class="panel panel-flush">
+          <div class="panel-header"><h2>Deals</h2></div>
+          <partial name="_DealTable" model="Model.Deals.OrderByDescending(d => d.CreatedAtUtc).ToList()" />
+        </div>
+
+        <div class="panel panel-flush">
+          <div class="panel-header"><h2>Quotes</h2></div>
+          <partial name="_QuoteTable" model="quotes" />
+        </div>
+
+        <form method="post" action="/organisations/@Model.Id/delete" data-confirm="Delete this organisation? Its contacts, deals, quotes and activities are kept but unlinked.">
+          @Html.AntiForgeryToken()
+          <button type="submit" class="btn btn-danger btn-sm">Delete organisation</button>
+        </form>
+      </div>
+      <div>
+        <partial name="_ActivityPanel" model="activityPanel" />
+      </div>
+    </div>
+  </div>
+</section>

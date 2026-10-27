@@ -1,0 +1,31 @@
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb"><a href="/contacts">Contacts</a> / Import</div>
+    <h1>Import contacts from CSV</h1>
+    <p>Bring across an existing customer list.</p>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+    <div class="panel form-panel">
+      <form method="post" action="/contacts/import" enctype="multipart/form-data" class="form-grid">
+        @Html.AntiForgeryToken()
+        <div class="field">
+          <label for="file">CSV file</label>
+          <input type="file" id="file" name="file" accept=".csv,text/csv" required />
+          <p class="field-hint">
+            First row must be column headings. <strong>First name</strong> is required; also recognised:
+            Last name, Email, Phone, Mobile, Job title, Organisation (matched by name, or created).
+            Rows whose email is already in the CRM are skipped, so re-importing the same file is safe.
+          </p>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-sm">Import</button>
+          <a href="/contacts" class="btn btn-ghost btn-sm">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

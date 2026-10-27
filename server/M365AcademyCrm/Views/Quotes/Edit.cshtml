@@ -1,0 +1,161 @@
+@model Quote
+@inject Lookups Lookups
+@{
+    var isNew = Model.Id == 0;
+    var organisations = await Lookups.OrganisationsAsync();
+    var contacts = await Lookups.ContactsAsync();
+    var courses = await Lookups.CoursesAsync();
+    var action = isNew ? "/quotes/new" : $"/quotes/{Model.Id}/edit";
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+}
+
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb"><a href="/quotes">Quotes</a> / @(isNew ? "New" : Model.Number)</div>
+    <h1>@(isNew ? "New quote" : $"Edit {Model.Number}")</h1>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <form method="post" action="@action" class="form-grid">
+      @Html.AntiForgeryToken()
+      <input type="hidden" asp-for="DealId" />
+      <div class="panel">
+        <div asp-validation-summary="All" class="validation-summary-errors"></div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="Title">Title</label>
+            <input asp-for="Title" required maxlength="200" placeholder="e.g. AZ-104 Azure Administrator - private cohort" />
+          </div>
+          <div class="field">
+            <label for="OwnerId">Prepared by</label>
+            <partial name="_OwnerSelect" model="Model.OwnerId" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="OrganisationId">Organisation</label>
+            <select asp-for="OrganisationId">
+              <option value="">- None -</option>
+              @foreach (var o in organisations)
+              {
+                <option value="@o.Id" selected="@(Model.OrganisationId == o.Id)">@o.Name</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label asp-for="ContactId">For the attention of</label>
+            <select asp-for="ContactId">
+              <option value="">- None -</option>
+              @foreach (var c in contacts)
+              {
+                <option value="@c.Id" selected="@(Model.ContactId == c.Id)">@c.FullName@(c.Organisation is null ? "" : $" ({c.Organisation.Name})")</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="IssueDate">Issue date</label>
+            <input asp-for="IssueDate" type="date" required />
+          </div>
+          <div class="field">
+            <label asp-for="ValidUntil">Valid until</label>
+            <input asp-for="ValidUntil" type="date" required />
+          </div>
+        </div>
+      </div>
+
+      <div class="panel panel-flush">
+        <div class="panel-header"><h2>Lines</h2></div>
+        <div class="admin-table-wrap">
+          <table class="admin-table quote-lines" data-quote-lines>
+            <thead><tr><th>Course (optional)</th><th>Description</th><th class="col-qty">Qty</th><th class="col-price">Unit price &pound;</th><th class="col-total num">Line total</th><th></th></tr></thead>
+            <tbody>
+              @for (var i = 0; i < Model.Lines.Count; i++)
+              {
+                var line = Model.Lines[i];
+                <tr>
+                  <td style="width:220px;">
+                    <select name="Lines[@i].CourseId" data-course aria-label="Course">
+                      <option value="">-</option>
+                      @foreach (var c in courses)
+                      {
+                        <option value="@c.Id" selected="@(line.CourseId == c.Id)" data-title="@c.DisplayName" data-price="@c.PricePerDelegate.ToString(inv)">@c.Code</option>
+                      }
+                    </select>
+                  </td>
+                  <td><input name="Lines[@i].Description" value="@line.Description" maxlength="300" data-desc aria-label="Description" /></td>
+                  <td class="col-qty"><input name="Lines[@i].Quantity" type="number" min="0" value="@line.Quantity" data-qty aria-label="Quantity" /></td>
+                  <td class="col-price"><input name="Lines[@i].UnitPrice" type="number" min="0" step="0.01" value="@line.UnitPrice.ToString("0.00", inv)" data-unit-price aria-label="Unit price" /></td>
+                  <td class="col-total num" data-line-total></td>
+                  <td><button type="button" class="btn btn-ghost btn-xs" data-remove-line aria-label="Remove line">&times;</button></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:1rem 1.4rem;">
+          <button type="button" class="btn btn-ghost btn-sm" data-add-line>+ Add line</button>
+        </div>
+      </div>
+
+      <template id="quote-line-template">
+        <tr>
+          <td style="width:220px;">
+            <select name="Lines[0].CourseId" data-course aria-label="Course">
+              <option value="">-</option>
+              @foreach (var c in courses)
+              {
+                <option value="@c.Id" data-title="@c.DisplayName" data-price="@c.PricePerDelegate.ToString(inv)">@c.Code</option>
+              }
+            </select>
+          </td>
+          <td><input name="Lines[0].Description" maxlength="300" data-desc aria-label="Description" /></td>
+          <td class="col-qty"><input name="Lines[0].Quantity" type="number" min="0" value="1" data-qty aria-label="Quantity" /></td>
+          <td class="col-price"><input name="Lines[0].UnitPrice" type="number" min="0" step="0.01" value="0.00" data-unit-price aria-label="Unit price" /></td>
+          <td class="col-total num" data-line-total></td>
+          <td><button type="button" class="btn btn-ghost btn-xs" data-remove-line aria-label="Remove line">&times;</button></td>
+        </tr>
+      </template>
+
+      <div class="panel">
+        <div class="two-col" style="grid-template-columns:minmax(0,1fr) 340px;">
+          <div class="form-grid">
+            <div class="form-row">
+              <div class="field">
+                <label asp-for="DiscountPercent">Discount %</label>
+                <input asp-for="DiscountPercent" type="number" min="0" max="100" step="0.01" />
+              </div>
+              <div class="field">
+                <label asp-for="VatRate">VAT %</label>
+                <input asp-for="VatRate" type="number" min="0" max="100" step="0.01" />
+              </div>
+            </div>
+            <div class="field">
+              <label asp-for="Terms">Terms (printed on the quote)</label>
+              <textarea asp-for="Terms" maxlength="4000" style="min-height:90px;"></textarea>
+            </div>
+            <div class="field">
+              <label asp-for="Notes">Internal notes (not printed)</label>
+              <textarea asp-for="Notes" maxlength="4000" style="min-height:70px;"></textarea>
+            </div>
+          </div>
+          <div class="quote-totals">
+            <span>Subtotal</span><span class="num" data-subtotal></span>
+            <span>Discount</span><span class="num" data-discount></span>
+            <span>Total ex VAT</span><span class="num" data-net></span>
+            <span>VAT</span><span class="num" data-vat></span>
+            <span class="grand">Total inc VAT</span><span class="grand num" data-gross></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-sm">@(isNew ? "Create quote" : "Save changes")</button>
+        <a href="@(isNew ? "/quotes" : $"/quotes/{Model.Id}")" class="btn btn-ghost btn-sm">Cancel</a>
+      </div>
+    </form>
+  </div>
+</section>

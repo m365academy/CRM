@@ -1,0 +1,68 @@
+@model Quote
+@{
+    var company = (CompanyOptions)ViewBag.Company;
+    var org = Model.Organisation;
+    var orgAddress = org is null ? Array.Empty<string?>() : new[] { org.AddressLine1, org.AddressLine2, org.City, org.Postcode, org.Country };
+}
+<div class="print-head">
+  <div>
+    <img src="/assets/m365new.png" alt="@company.Name" />
+  </div>
+  <div style="text-align:right;">
+    <h1 style="font-size:1.6rem; margin:0;">Quote</h1>
+    <div style="font-weight:700;">@Model.Number</div>
+    <div class="small muted">Issued @Ui.Date(Model.IssueDate) &middot; valid until @Ui.Date(Model.ValidUntil)</div>
+  </div>
+</div>
+
+<div class="print-meta">
+  <div>
+    <div class="stat-label">For</div>
+    @if (Model.Contact is not null) { <div style="font-weight:700;">@Model.Contact.FullName</div> }
+    @if (org is not null) { <div>@org.Name</div> }
+    @foreach (var line in orgAddress.Where(l => !string.IsNullOrWhiteSpace(l))) { <div>@line</div> }
+    @if (Model.Contact?.Email is not null) { <div>@Model.Contact.Email</div> }
+  </div>
+  <div style="text-align:right;">
+    <div class="stat-label">From</div>
+    <div style="font-weight:700;">@company.Name</div>
+    @foreach (var line in company.AddressLines) { <div>@line</div> }
+    <div>@company.Email</div>
+    <div>@company.Phone</div>
+    @if (!string.IsNullOrEmpty(company.VatNumber)) { <div>VAT no. @company.VatNumber</div> }
+    @if (!string.IsNullOrEmpty(company.CompanyNumber)) { <div>Company no. @company.CompanyNumber</div> }
+  </div>
+</div>
+
+<h2 style="font-size:1.1rem;">@Model.Title</h2>
+<div class="admin-table-wrap" style="box-shadow:none;">
+  <table class="admin-table">
+    <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      @foreach (var l in Model.Lines)
+      {
+        <tr><td>@l.Description</td><td class="num">@l.Quantity</td><td class="num">@Ui.MoneyExact(l.UnitPrice)</td><td class="num">@Ui.MoneyExact(l.LineTotal)</td></tr>
+      }
+    </tbody>
+  </table>
+</div>
+
+<div class="quote-totals" style="margin-top:1rem;">
+  <span>Subtotal</span><span class="num">@Ui.MoneyExact(Model.Subtotal)</span>
+  @if (Model.DiscountPercent > 0)
+  {
+    <span>Discount (@Model.DiscountPercent.ToString("0.##")%)</span><span class="num">-@Ui.MoneyExact(Model.DiscountAmount)</span>
+  }
+  <span>Total ex VAT</span><span class="num">@Ui.MoneyExact(Model.NetTotal)</span>
+  <span>VAT (@Model.VatRate.ToString("0.##")%)</span><span class="num">@Ui.MoneyExact(Model.VatAmount)</span>
+  <span class="grand">Total inc VAT</span><span class="grand num">@Ui.MoneyExact(Model.GrossTotal)</span>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.Terms))
+{
+  <div style="margin-top:2rem;">
+    <div class="stat-label">Terms</div>
+    <p class="prewrap small">@Model.Terms</p>
+  </div>
+}
+<p class="small muted" style="margin-top:2rem;">Prepared by @(Model.Owner?.DisplayName ?? company.Name) &middot; @company.Website</p>

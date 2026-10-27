@@ -1,0 +1,90 @@
+@model Quote
+@{
+    var expired = Model.Status == QuoteStatus.Sent && Model.ValidUntil < Ui.TodayUk;
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <div class="breadcrumb"><a href="/quotes">Quotes</a> / @Model.Number</div>
+      <h1>@Model.Number <span class="badge @Ui.BadgeClass(Model.Status)">@Model.Status</span></h1>
+      <p>@Model.Title &middot; @Ui.MoneyExact(Model.NetTotal) ex VAT@(Model.SentAtUtc is null ? "" : $" · sent {Ui.Date(Model.SentAtUtc.Value)}")</p>
+    </div>
+    <div class="page-actions">
+      <a href="/quotes/@Model.Id/print" class="btn btn-light btn-sm" target="_blank">Print / PDF</a>
+      <a href="/quotes/@Model.Id/edit" class="btn btn-outline btn-sm">Edit</a>
+      <form method="post" action="/quotes/@Model.Id/duplicate" class="inline-form">
+        @Html.AntiForgeryToken()
+        <button type="submit" class="btn btn-outline btn-sm">Duplicate</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+    @if (expired)
+    {
+      <div class="flash flash-error">This quote passed its valid-until date (@Ui.Date(Model.ValidUntil)) without being accepted - chase it, or mark it expired.</div>
+    }
+    <div class="two-col">
+      <div class="panel" style="padding:2rem;">
+        <partial name="_QuoteDocument" model="Model" />
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-header"><h2>Status</h2></div>
+          <div class="stage-steps">
+            @foreach (var s in Enum.GetValues<QuoteStatus>())
+            {
+              <form method="post" action="/quotes/@Model.Id/status" class="inline-form" data-confirm="@(s == QuoteStatus.Accepted && Model.DealId is not null ? "Mark accepted? This also marks the deal Won at this quote's ex-VAT total." : $"Mark {s}?")">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="status" value="@s" />
+                <button type="submit" aria-current="@(Model.Status == s ? "step" : null)">@s</button>
+              </form>
+            }
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Email to customer</h2></div>
+          @if (string.IsNullOrEmpty(Model.Contact?.Email))
+          {
+            <p class="empty">Set a contact with an email address on this quote to email it from here. Or use Print / PDF and attach it in Outlook.</p>
+          }
+          else
+          {
+            <form method="post" action="/quotes/@Model.Id/email" class="form-grid">
+              @Html.AntiForgeryToken()
+              <p class="small" style="margin:0;">To <strong>@Model.Contact.FullName</strong> &lt;@Model.Contact.Email&gt;. The quote is included in the email body; replies come to you.</p>
+              <div class="field">
+                <label for="message">Covering message (optional)</label>
+                <textarea id="message" name="message" maxlength="4000" style="min-height:90px;" placeholder="Thank you for your interest in training with M365 Academy. Please find our quote below."></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Send quote</button>
+            </form>
+          }
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Linked to</h2></div>
+          <dl class="detail-list" style="grid-template-columns:110px minmax(0,1fr);">
+            <dt>Deal</dt><dd>@if (Model.Deal is not null) { <a href="/deals/@Model.Deal.Id">@Model.Deal.Title</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Organisation</dt><dd>@if (Model.Organisation is not null) { <a href="/organisations/@Model.Organisation.Id">@Model.Organisation.Name</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Contact</dt><dd>@if (Model.Contact is not null) { <a href="/contacts/@Model.Contact.Id">@Model.Contact.FullName</a> } else { <span class="muted">-</span> }</dd>
+          </dl>
+          @if (!string.IsNullOrWhiteSpace(Model.Notes))
+          {
+            <div class="prewrap note-card" style="margin-top:1rem;">@Model.Notes</div>
+          }
+        </div>
+
+        <form method="post" action="/quotes/@Model.Id/delete" data-confirm="Delete this quote permanently?">
+          @Html.AntiForgeryToken()
+          <button type="submit" class="btn btn-danger btn-sm">Delete quote</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>

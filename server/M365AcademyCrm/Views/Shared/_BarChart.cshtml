@@ -1,0 +1,22 @@
+@model List<ReportRow>
+@{
+    // Single-series horizontal bars. aria-hidden: the table that always
+    // accompanies a chart here is the accessible version of the same data.
+    var format = ViewData["BarFormat"] as string ?? "money";
+    var max = Model.Count == 0 ? 0 : Model.Max(r => r.Value);
+    string Fmt(decimal v) => format == "count" ? v.ToString("N0") : Ui.Money(v);
+}
+@if (max > 0)
+{
+  <div class="bar-chart" aria-hidden="true">
+    @foreach (var r in Model)
+    {
+      var pct = (double)(r.Value / max) * 100;
+      <div class="bar-row" title="@r.Label: @Fmt(r.Value)@(r.Note is null ? "" : $" ({r.Note})")">
+        <span class="bar-label">@r.Label</span>
+        <span class="bar-track"><span class="bar-fill" style="display:block;width:@pct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%"></span></span>
+        <span class="bar-value">@Fmt(r.Value)</span>
+      </div>
+    }
+  </div>
+}

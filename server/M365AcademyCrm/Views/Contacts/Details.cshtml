@@ -1,0 +1,80 @@
+@model Contact
+@{
+    var deals = (List<Deal>)ViewBag.Deals;
+    var quotes = (List<Quote>)ViewBag.Quotes;
+    var activities = (List<Activity>)ViewBag.Activities;
+    var leads = (List<Lead>)ViewBag.Leads;
+    var activityPanel = new ActivityPanelModel { Items = activities, ContactId = Model.Id, OrganisationId = Model.OrganisationId, ReturnUrl = $"/contacts/{Model.Id}", EmailTo = Model.Email, EmailToName = Model.FullName };
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <div class="breadcrumb"><a href="/contacts">Contacts</a> / @Model.FullName</div>
+      <h1>@Model.FullName</h1>
+      <p>@(Model.JobTitle ?? "")@(Model.JobTitle is not null && Model.Organisation is not null ? " at " : "")@if (Model.Organisation is not null) { <a href="/organisations/@Model.Organisation.Id" style="color:#fff;text-decoration:underline;">@Model.Organisation.Name</a> }</p>
+    </div>
+    <div class="page-actions">
+      <a href="/deals/new?contactId=@Model.Id" class="btn btn-light btn-sm">+ Deal</a>
+      <a href="/quotes/new?contactId=@Model.Id&organisationId=@Model.OrganisationId" class="btn btn-outline btn-sm">+ Quote</a>
+      <a href="/contacts/@Model.Id/edit" class="btn btn-outline btn-sm">Edit</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+    <div class="two-col">
+      <div>
+        <div class="panel">
+          <div class="panel-header"><h2>Details</h2></div>
+          <dl class="detail-list">
+            <dt>Email</dt><dd>@if (Model.Email is not null) { <a href="mailto:@Model.Email">@Model.Email</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Phone</dt><dd>@if (Model.Phone is not null) { <a href="tel:@Model.Phone">@Model.Phone</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Mobile</dt><dd>@if (Model.Mobile is not null) { <a href="tel:@Model.Mobile">@Model.Mobile</a> } else { <span class="muted">-</span> }</dd>
+            <dt>LinkedIn</dt><dd>@if (Model.LinkedInUrl is not null && Uri.TryCreate(Model.LinkedInUrl, UriKind.Absolute, out var li) && (li.Scheme == "https" || li.Scheme == "http")) { <a href="@li" target="_blank" rel="noopener noreferrer">Profile</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Marketing consent</dt><dd>@(Model.MarketingConsent ? "Yes" : "No")</dd>
+            <dt>Owner</dt><dd>@(Model.Owner?.DisplayName ?? "Unassigned")</dd>
+            <dt>Added</dt><dd>@Ui.Date(Model.CreatedAtUtc)</dd>
+          </dl>
+          @if (!string.IsNullOrWhiteSpace(Model.Notes))
+          {
+            <div class="prewrap note-card" style="margin-top:1rem;">@Model.Notes</div>
+          }
+        </div>
+
+        <div class="panel panel-flush">
+          <div class="panel-header"><h2>Deals</h2></div>
+          <partial name="_DealTable" model="deals" />
+        </div>
+
+        <div class="panel panel-flush">
+          <div class="panel-header"><h2>Quotes</h2></div>
+          <partial name="_QuoteTable" model="quotes" />
+        </div>
+
+        @if (leads.Count > 0)
+        {
+          <div class="panel">
+            <div class="panel-header"><h2>Enquiries from this email</h2></div>
+            <ul class="task-list">
+              @foreach (var l in leads)
+              {
+                <li><span><a href="/leads/@l.Id">@(l.CourseOfInterest ?? "General enquiry")</a> <span class="small muted">&middot; @Ui.Display(l.Source) &middot; @Ui.Date(l.CreatedAtUtc)</span></span><span class="badge @Ui.BadgeClass(l.Status)">@l.Status</span></li>
+              }
+            </ul>
+          </div>
+        }
+
+        <form method="post" action="/contacts/@Model.Id/delete" data-confirm="Delete this contact? Their deals, quotes and activities are kept but unlinked.">
+          @Html.AntiForgeryToken()
+          <button type="submit" class="btn btn-danger btn-sm">Delete contact</button>
+        </form>
+      </div>
+      <div>
+        <partial name="_ActivityPanel" model="activityPanel" />
+      </div>
+    </div>
+  </div>
+</section>

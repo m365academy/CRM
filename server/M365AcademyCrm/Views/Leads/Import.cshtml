@@ -1,0 +1,31 @@
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb"><a href="/leads">Leads</a> / Import</div>
+    <h1>Import leads from CSV</h1>
+    <p>For event attendee lists, LinkedIn exports, purchased lists you have consent for, and so on.</p>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+    <div class="panel form-panel">
+      <form method="post" action="/leads/import" enctype="multipart/form-data" class="form-grid">
+        @Html.AntiForgeryToken()
+        <div class="field">
+          <label for="file">CSV file</label>
+          <input type="file" id="file" name="file" accept=".csv,text/csv" required />
+          <p class="field-hint">
+            First row must be column headings. <strong>Name</strong> is required; also recognised:
+            Email, Phone, Company, Job title, Course (a code like AZ-104 links to the catalogue), Notes.
+            Imported leads are assigned to you with source "Imported". Rows without a name or with an invalid email are skipped.
+          </p>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-sm">Import</button>
+          <a href="/leads" class="btn btn-ghost btn-sm">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

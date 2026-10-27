@@ -1,0 +1,85 @@
+@model Contact
+@inject Lookups Lookups
+@{
+    var isNew = Model.Id == 0;
+    var organisations = await Lookups.OrganisationsAsync();
+    var action = isNew ? "/contacts/new" : $"/contacts/{Model.Id}/edit";
+}
+
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb"><a href="/contacts">Contacts</a> / @(isNew ? "New" : Model.FullName)</div>
+    <h1>@(isNew ? "New contact" : $"Edit {Model.FullName}")</h1>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <div class="panel form-panel">
+      <form method="post" action="@action" class="form-grid">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="validation-summary-errors"></div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="FirstName">First name</label>
+            <input asp-for="FirstName" required maxlength="80" />
+          </div>
+          <div class="field">
+            <label asp-for="LastName">Last name</label>
+            <input asp-for="LastName" maxlength="80" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="OrganisationId">Organisation</label>
+            <select asp-for="OrganisationId">
+              <option value="">- None -</option>
+              @foreach (var o in organisations)
+              {
+                <option value="@o.Id" selected="@(Model.OrganisationId == o.Id)">@o.Name</option>
+              }
+            </select>
+            <p class="field-hint">Not listed? <a href="/organisations/new" target="_blank">Create the organisation</a> first, then refresh.</p>
+          </div>
+          <div class="field">
+            <label asp-for="JobTitle">Job title</label>
+            <input asp-for="JobTitle" maxlength="120" />
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="Email">Email</label>
+            <input asp-for="Email" type="email" maxlength="254" />
+          </div>
+          <div class="field">
+            <label asp-for="Phone">Phone</label>
+            <input asp-for="Phone" type="tel" maxlength="30" />
+          </div>
+          <div class="field">
+            <label asp-for="Mobile">Mobile</label>
+            <input asp-for="Mobile" type="tel" maxlength="30" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="LinkedInUrl">LinkedIn profile</label>
+            <input asp-for="LinkedInUrl" type="url" maxlength="300" placeholder="https://www.linkedin.com/in/..." />
+          </div>
+          <div class="field">
+            <label for="OwnerId">Owner</label>
+            <partial name="_OwnerSelect" model="Model.OwnerId" />
+          </div>
+        </div>
+        <label class="field-check"><input asp-for="MarketingConsent" /> Has consented to marketing email (record where/when in notes)</label>
+        <div class="field">
+          <label asp-for="Notes">Notes</label>
+          <textarea asp-for="Notes" maxlength="4000"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-sm">@(isNew ? "Create contact" : "Save changes")</button>
+          <a href="@(isNew ? "/contacts" : $"/contacts/{Model.Id}")" class="btn btn-ghost btn-sm">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

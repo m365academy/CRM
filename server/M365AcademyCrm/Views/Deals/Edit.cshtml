@@ -1,0 +1,150 @@
+@model Deal
+@inject Lookups Lookups
+@{
+    var isNew = Model.Id == 0;
+    var organisations = await Lookups.OrganisationsAsync();
+    var contacts = await Lookups.ContactsAsync();
+    var courses = await Lookups.CoursesAsync(Model.CourseId);
+    var action = isNew ? "/deals/new" : $"/deals/{Model.Id}/edit";
+}
+
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb"><a href="/deals">Pipeline</a> / @(isNew ? "New" : Model.Title)</div>
+    <h1>@(isNew ? "New deal" : $"Edit {Model.Title}")</h1>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <div class="panel form-panel">
+      <form method="post" action="@action" class="form-grid" data-deal-form>
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="validation-summary-errors"></div>
+        <div class="field">
+          <label asp-for="Title">Title</label>
+          <input asp-for="Title" required maxlength="200" placeholder="e.g. Contoso Council - AZ-104 private cohort" />
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="OrganisationId">Organisation</label>
+            <select asp-for="OrganisationId">
+              <option value="">- None -</option>
+              @foreach (var o in organisations)
+              {
+                <option value="@o.Id" selected="@(Model.OrganisationId == o.Id)">@o.Name</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label asp-for="ContactId">Main contact</label>
+            <select asp-for="ContactId">
+              <option value="">- None -</option>
+              @foreach (var c in contacts)
+              {
+                <option value="@c.Id" selected="@(Model.ContactId == c.Id)">@c.FullName@(c.Organisation is null ? "" : $" ({c.Organisation.Name})")</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <p class="form-section-title">What they're buying</p>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="CourseId">Course</label>
+            <select asp-for="CourseId">
+              <option value="">- Not set / bespoke -</option>
+              @foreach (var c in courses)
+              {
+                <option value="@c.Id" selected="@(Model.CourseId == c.Id)" data-price="@c.PricePerDelegate.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-private-price="@c.PrivateCoursePrice.ToString(System.Globalization.CultureInfo.InvariantCulture)">@c.DisplayName</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label asp-for="DeliveryFormat">Format</label>
+            <select asp-for="DeliveryFormat">
+              @foreach (var f in Enum.GetValues<DeliveryFormat>())
+              {
+                <option value="@f" selected="@(Model.DeliveryFormat == f)">@Ui.Display(f)</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="Delegates">Delegates</label>
+            <input asp-for="Delegates" type="number" min="1" max="10000" required />
+          </div>
+          <div class="field">
+            <label asp-for="Value">Value (&pound;, ex VAT)</label>
+            <input asp-for="Value" type="number" min="0" step="0.01" />
+            <p class="field-hint" data-price-hint></p>
+            <p class="field-hint">Leave at 0 to price from the catalogue.</p>
+          </div>
+          <div class="field">
+            <label asp-for="PreferredDates">Preferred dates / timing</label>
+            <input asp-for="PreferredDates" maxlength="300" placeholder="e.g. w/c 12 Jan, or Q1" />
+          </div>
+        </div>
+
+        <p class="form-section-title">Pipeline</p>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="Stage">Stage</label>
+            <select asp-for="Stage">
+              @foreach (var s in Enum.GetValues<DealStage>())
+              {
+                <option value="@s" selected="@(Model.Stage == s)">@Ui.Display(s)</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label asp-for="Probability">Win probability (%)</label>
+            <input asp-for="Probability" type="number" min="0" max="100" />
+          </div>
+          <div class="field">
+            <label asp-for="ExpectedCloseDate">Expected close date</label>
+            <input asp-for="ExpectedCloseDate" type="date" />
+          </div>
+        </div>
+        <div class="field" data-lost-reason>
+          <label asp-for="LostReason">Lost reason</label>
+          <select asp-for="LostReason">
+            <option value="">- Choose -</option>
+            @foreach (var r in Ui.LostReasons)
+            {
+              <option value="@r" selected="@(Model.LostReason == r)">@r</option>
+            }
+          </select>
+        </div>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="Source">Source</label>
+            <select asp-for="Source">
+              @foreach (var s in Enum.GetValues<LeadSource>())
+              {
+                <option value="@s" selected="@(Model.Source == s)">@Ui.Display(s)</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label asp-for="PurchaseOrderNumber">PO number</label>
+            <input asp-for="PurchaseOrderNumber" maxlength="60" />
+          </div>
+          <div class="field">
+            <label for="OwnerId">Owner</label>
+            <partial name="_OwnerSelect" model="Model.OwnerId" />
+          </div>
+        </div>
+        <div class="field">
+          <label asp-for="Notes">Notes</label>
+          <textarea asp-for="Notes" maxlength="4000"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-sm">@(isNew ? "Create deal" : "Save changes")</button>
+          <a href="@(isNew ? "/deals" : $"/deals/{Model.Id}")" class="btn btn-ghost btn-sm">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

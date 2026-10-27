@@ -1,0 +1,296 @@
+@model ReportData
+@{
+    var stageRows = Model.PipelineByStage.Select(s => new ReportRow(Ui.Display(s.Stage), s.Value, $"{s.Count} deals")).ToList();
+    var forecastRows = Model.Forecast.Select(f => new ReportRow(f.Label, f.Weighted, $"{f.Count} deals, {Ui.Money(f.Value)} unweighted")).ToList();
+    var owner = ViewBag.Owner as string;
+    var qs = $"?from={Model.From:yyyy-MM-dd}&to={Model.To:yyyy-MM-dd}" + (string.IsNullOrEmpty(owner) ? "" : $"&owner={Uri.EscapeDataString(owner)}");
+    var maxMonth = Model.RevenueByMonth.Count == 0 ? 0 : Model.RevenueByMonth.Max(r => r.Value);
+    var inv = System.Globalization.CultureInfo.InvariantCulture;
+    var today = Ui.TodayUk;
+    var yearStart = new DateOnly(today.Year, 1, 1);
+    var quarterStart = new DateOnly(today.Year, (today.Month - 1) / 3 * 3 + 1, 1);
+    var monthStart = new DateOnly(today.Year, today.Month, 1);
+    string Preset(DateOnly from, DateOnly to) => $"/reports?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}" + (string.IsNullOrEmpty(owner) ? "" : $"&owner={Uri.EscapeDataString(owner)}");
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <span class="eyebrow">Insight</span>
+      <h1>Sales reports</h1>
+      <p>@Ui.Date(Model.From) to @Ui.Date(Model.To). Won/lost counted by close date, leads by date received. Pipeline and forecast are as of today.</p>
+    </div>
+    <div class="page-actions">
+      <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">Print</button>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <form method="get" action="/reports" class="toolbar">
+      <div class="field">
+        <label for="from">From</label>
+        <input type="date" id="from" name="from" value="@Model.From.ToString("yyyy-MM-dd", inv)" />
+      </div>
+      <div class="field">
+        <label for="to">To</label>
+        <input type="date" id="to" name="to" value="@Model.To.ToString("yyyy-MM-dd", inv)" />
+      </div>
+      <partial name="_OwnerFilter" model="owner" />
+      <button type="submit" class="btn btn-primary btn-sm">Run report</button>
+      <span class="toolbar-spacer"></span>
+      <nav class="tabs" style="margin:0;" aria-label="Date presets">
+        <a href="@Preset(monthStart, today)">This month</a>
+        <a href="@Preset(quarterStart, today)">This quarter</a>
+        <a href="@Preset(yearStart, today)">Year to date</a>
+        <a href="@Preset(monthStart.AddMonths(-11), today)">Last 12 months</a>
+      </nav>
+    </form>
+
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="stat-label">Won revenue</div><div class="stat-value">@Ui.Money(Model.WonRevenue)</div><div class="stat-sub">@Model.WonCount deal@(Model.WonCount == 1 ? "" : "s") &middot; @Model.DelegatesWon delegates</div></div>
+      <div class="stat-tile"><div class="stat-label">Win rate</div><div class="stat-value">@Ui.Percent(Model.WinRate)</div><div class="stat-sub">@Model.WonCount won / @Model.LostCount lost</div></div>
+      <div class="stat-tile"><div class="stat-label">Average deal</div><div class="stat-value">@Ui.Money(Model.AverageDealSize)</div><div class="stat-sub">Sales cycle @(Model.AverageCycleDays is null ? "-" : $"{Model.AverageCycleDays:0} days")</div></div>
+      <div class="stat-tile"><div class="stat-label">New leads</div><div class="stat-value">@Model.NewLeads</div><div class="stat-sub">@Ui.Percent(Model.LeadConversionRate) converted</div></div>
+      <div class="stat-tile"><div class="stat-label">Open pipeline</div><div class="stat-value">@Ui.Money(Model.OpenPipeline)</div><div class="stat-sub">@Ui.Money(Model.WeightedPipeline) weighted</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Won revenue by month</h2><a class="small" href="/reports/export/revenue-by-month@(qs)">Export CSV</a></div>
+      @if (maxMonth > 0)
+      {
+        <div aria-hidden="true">
+          <div class="col-chart">
+            @foreach (var m in Model.RevenueByMonth)
+            {
+              var pct = (double)(m.Value / maxMonth) * 100;
+              <div class="col">
+                <span class="col-tip">@m.Label: @Ui.Money(m.Value) (@m.Note)</span>
+                <div class="col-fill" style="height:@pct.ToString("0.#", inv)%"></div>
+              </div>
+            }
+          </div>
+          <div class="col-labels">
+            @foreach (var m in Model.RevenueByMonth)
+            {
+              <span>@m.Label.Split(' ')[0]</span>
+            }
+          </div>
+        </div>
+      }
+      <details class="panel-details" style="margin-top:1rem;" open="@(maxMonth == 0)">
+        <summary>Table</summary>
+        <table class="admin-table">
+          <thead><tr><th>Month</th><th class="num">Won revenue</th><th class="num">Deals</th></tr></thead>
+          <tbody>
+            @foreach (var m in Model.RevenueByMonth)
+            {
+              <tr><td>@m.Label</td><td class="num">@Ui.Money(m.Value)</td><td class="num">@m.Note</td></tr>
+            }
+          </tbody>
+          <tfoot><tr><td>Total</td><td class="num">@Ui.Money(Model.WonRevenue)</td><td class="num">@Model.WonCount deals</td></tr></tfoot>
+        </table>
+      </details>
+    </div>
+
+    <div class="dash-grid">
+      <div class="panel">
+        <div class="panel-header"><h2>Pipeline by stage (now)</h2><a class="small" href="/reports/export/pipeline@(qs)">Export CSV</a></div>
+        <partial name="_BarChart" model="stageRows" />
+        <table class="admin-table">
+          <thead><tr><th>Stage</th><th class="num">Deals</th><th class="num">Value</th><th class="num">Weighted</th></tr></thead>
+          <tbody>
+            @foreach (var s in Model.PipelineByStage)
+            {
+              <tr><td>@Ui.Display(s.Stage)</td><td class="num">@s.Count</td><td class="num">@Ui.Money(s.Value)</td><td class="num">@Ui.Money(s.Weighted)</td></tr>
+            }
+          </tbody>
+          <tfoot><tr><td>Total</td><td class="num">@Model.PipelineByStage.Sum(s => s.Count)</td><td class="num">@Ui.Money(Model.OpenPipeline)</td><td class="num">@Ui.Money(Model.WeightedPipeline)</td></tr></tfoot>
+        </table>
+      </div>
+
+      <div class="panel" id="forecast">
+        <div class="panel-header"><h2>Forecast by expected close (now)</h2><a class="small" href="/reports/export/forecast@(qs)">Export CSV</a></div>
+        <partial name="_BarChart" model="forecastRows" />
+        <table class="admin-table">
+          <thead><tr><th>Expected close</th><th class="num">Deals</th><th class="num">Value</th><th class="num">Weighted</th></tr></thead>
+          <tbody>
+            @foreach (var f in Model.Forecast)
+            {
+              <tr class="@(f.Label.StartsWith("Overdue") && f.Count > 0 ? "is-overdue" : "")"><td>@f.Label</td><td class="num">@f.Count</td><td class="num">@Ui.Money(f.Value)</td><td class="num">@Ui.Money(f.Weighted)</td></tr>
+            }
+          </tbody>
+        </table>
+        <p class="chart-caption">Bars show weighted value (value &times; win probability).</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><h2>Lead sources</h2><a class="small" href="/reports/export/lead-sources@(qs)">Export CSV</a></div>
+        @{ ViewData["BarFormat"] = "count"; }
+        <partial name="_BarChart" model="Model.LeadSources.Select(s => new ReportRow(Ui.Display(s.Source), s.Leads)).ToList()" />
+        @{ ViewData["BarFormat"] = "money"; }
+        @if (Model.LeadSources.Count == 0)
+        {
+          <p class="empty">No leads in this period.</p>
+        }
+        else
+        {
+          <table class="admin-table">
+            <thead><tr><th>Source</th><th class="num">Leads</th><th class="num">Converted</th><th class="num">Rate</th><th class="num">Won revenue</th></tr></thead>
+            <tbody>
+              @foreach (var s in Model.LeadSources)
+              {
+                <tr><td>@Ui.Display(s.Source)</td><td class="num">@s.Leads</td><td class="num">@s.Converted</td><td class="num">@Ui.Percent(s.ConversionRate)</td><td class="num">@Ui.Money(s.WonRevenue)</td></tr>
+              }
+            </tbody>
+          </table>
+          <p class="chart-caption">Won revenue is from deals closed in the period, by the deal's source.</p>
+        }
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><h2>Lead outcomes</h2></div>
+        @{ ViewData["BarFormat"] = "count"; }
+        <partial name="_BarChart" model="Model.LeadStatuses" />
+        @{ ViewData["BarFormat"] = "money"; }
+        <table class="admin-table">
+          <thead><tr><th>Status now</th><th class="num">Leads received in period</th></tr></thead>
+          <tbody>
+            @foreach (var s in Model.LeadStatuses)
+            {
+              <tr><td>@s.Label</td><td class="num">@s.Value.ToString("N0")</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Courses</h2><a class="small" href="/reports/export/courses@(qs)">Export CSV</a></div>
+      @if (Model.Courses.Count == 0)
+      {
+        <p class="empty">No deals with a course set.</p>
+      }
+      else
+      {
+        <partial name="_BarChart" model="Model.Courses.Where(c => c.Revenue > 0).Select(c => new ReportRow(c.Course, c.Revenue)).ToList()" />
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Course</th><th>Category</th><th class="num">Deals won</th><th class="num">Delegates</th><th class="num">Won revenue</th><th class="num">Open pipeline</th></tr></thead>
+            <tbody>
+              @foreach (var c in Model.Courses)
+              {
+                <tr><td>@c.Course</td><td>@c.Category</td><td class="num">@c.DealsWon</td><td class="num">@c.Delegates</td><td class="num">@Ui.Money(c.Revenue)</td><td class="num">@Ui.Money(c.OpenPipeline)</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <div class="dash-grid">
+      <div class="panel">
+        <div class="panel-header"><h2>Won revenue by category</h2></div>
+        <partial name="_BarChart" model="Model.RevenueByCategory" />
+        @if (Model.RevenueByCategory.Count == 0) { <p class="empty">No won deals in this period.</p> }
+        else
+        {
+          <table class="admin-table">
+            <thead><tr><th>Category</th><th class="num">Won revenue</th><th class="num">Deals</th></tr></thead>
+            <tbody>@foreach (var r in Model.RevenueByCategory) { <tr><td>@r.Label</td><td class="num">@Ui.Money(r.Value)</td><td class="num">@r.Note</td></tr> }</tbody>
+          </table>
+        }
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h2>Won revenue by delivery format</h2></div>
+        <partial name="_BarChart" model="Model.RevenueByFormat" />
+        @if (Model.RevenueByFormat.Count == 0) { <p class="empty">No won deals in this period.</p> }
+        else
+        {
+          <table class="admin-table">
+            <thead><tr><th>Format</th><th class="num">Won revenue</th><th class="num">Deals</th></tr></thead>
+            <tbody>@foreach (var r in Model.RevenueByFormat) { <tr><td>@r.Label</td><td class="num">@Ui.Money(r.Value)</td><td class="num">@r.Note</td></tr> }</tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><h2>Sales team performance</h2><a class="small" href="/reports/export/reps@(qs)">Export CSV</a></div>
+      @if (Model.Reps.Count == 0)
+      {
+        <p class="empty">No activity in this period.</p>
+      }
+      else
+      {
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Salesperson</th><th class="num">Leads</th><th class="num">Won</th><th class="num">Lost</th><th class="num">Win rate</th><th class="num">Won revenue</th><th class="num">Open pipeline</th><th class="num">Calls / emails / meetings / tasks</th></tr></thead>
+            <tbody>
+              @foreach (var r in Model.Reps)
+              {
+                <tr><td>@r.Name</td><td class="num">@r.LeadsCreated</td><td class="num">@r.DealsWon</td><td class="num">@r.DealsLost</td><td class="num">@Ui.Percent(r.WinRate)</td><td class="num">@Ui.Money(r.Revenue)</td><td class="num">@Ui.Money(r.OpenPipeline)</td><td class="num">@r.Activities</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <div class="dash-grid">
+      <div class="panel">
+        <div class="panel-header"><h2>Why deals were lost</h2><a class="small" href="/reports/export/lost-reasons@(qs)">Export CSV</a></div>
+        @{ ViewData["BarFormat"] = "count"; }
+        <partial name="_BarChart" model="Model.LostReasons" />
+        @{ ViewData["BarFormat"] = "money"; }
+        @if (Model.LostReasons.Count == 0) { <p class="empty">No lost deals in this period.</p> }
+        else
+        {
+          <table class="admin-table">
+            <thead><tr><th>Reason</th><th class="num">Deals</th><th class="num">Value lost</th></tr></thead>
+            <tbody>@foreach (var r in Model.LostReasons) { <tr><td>@r.Label</td><td class="num">@r.Value.ToString("N0")</td><td class="num">@r.Note</td></tr> }</tbody>
+          </table>
+        }
+      </div>
+      <div class="panel">
+        <div class="panel-header"><h2>Top customers</h2><a class="small" href="/reports/export/customers@(qs)">Export CSV</a></div>
+        <partial name="_BarChart" model="Model.TopCustomers" />
+        @if (Model.TopCustomers.Count == 0) { <p class="empty">No won deals with an organisation in this period.</p> }
+        else
+        {
+          <table class="admin-table">
+            <thead><tr><th>Organisation</th><th class="num">Won revenue</th><th>Detail</th></tr></thead>
+            <tbody>@foreach (var r in Model.TopCustomers) { <tr><td>@r.Label</td><td class="num">@Ui.Money(r.Value)</td><td class="small muted">@r.Note</td></tr> }</tbody>
+          </table>
+        }
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="panel">
+        <div class="panel-header"><h2>Activity logged</h2></div>
+        @{ ViewData["BarFormat"] = "count"; }
+        <partial name="_BarChart" model="Model.ActivitiesByType" />
+        @{ ViewData["BarFormat"] = "money"; }
+        <table class="admin-table">
+          <thead><tr><th>Type</th><th class="num">Count</th></tr></thead>
+          <tbody>@foreach (var r in Model.ActivitiesByType) { <tr><td>@r.Label</td><td class="num">@r.Value.ToString("N0")</td></tr> }</tbody>
+        </table>
+      </div>
+      <div class="panel panel-flush">
+        <div class="panel-header"><h2>Won deals</h2><a class="small" style="margin-right:1.4rem;" href="/reports/export/won-deals@(qs)">Export CSV</a></div>
+        @if (Model.WonDeals.Count == 0) { <p class="empty" style="padding:0 1.4rem 1.2rem;">No won deals in this period.</p> }
+        else
+        {
+          <div class="admin-table-wrap" style="max-height:420px; overflow:auto;">
+            <table class="admin-table">
+              <thead><tr><th>Closed</th><th>Deal</th><th class="num">Value</th></tr></thead>
+              <tbody>@foreach (var d in Model.WonDeals) { <tr><td>@Ui.Date(d.ClosedAtUtc!.Value)</td><td><a href="/deals/@d.Id">@d.Title</a><span class="sub">@(d.Organisation?.Name)</span></td><td class="num">@Ui.Money(d.Value)</td></tr> }</tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</section>

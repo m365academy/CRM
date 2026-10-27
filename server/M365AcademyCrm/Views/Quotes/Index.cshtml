@@ -1,0 +1,71 @@
+@model ListPage<Quote>
+@{
+    var q = Context.Request.Query;
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <span class="eyebrow">Sales</span>
+      <h1>Quotes</h1>
+      <p>Priced proposals. Create one from a deal to start with its course and delegates filled in.</p>
+    </div>
+    <div class="page-actions">
+      <a href="/quotes/new" class="btn btn-light btn-sm">+ New quote</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <form method="get" action="/quotes" class="toolbar">
+      <div class="field">
+        <label for="q">Search</label>
+        <input type="search" id="q" name="q" value="@q["q"]" placeholder="Number, title, organisation" />
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status" data-autosubmit>
+          <option value="">All</option>
+          @foreach (var s in Enum.GetValues<QuoteStatus>())
+          {
+            <option value="@s" selected="@(q["status"] == s.ToString())">@s</option>
+          }
+        </select>
+      </div>
+      <button type="submit" class="btn btn-ghost btn-sm">Apply</button>
+    </form>
+
+    @if (Model.Items.Count == 0)
+    {
+      <div class="note-card">No quotes yet. Open a deal and choose "+ Quote".</div>
+    }
+    else
+    {
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Number</th><th>Title</th><th>Organisation</th><th>Status</th><th>Issued</th><th>Valid until</th><th class="num">Total ex VAT</th><th class="num">Inc VAT</th></tr></thead>
+          <tbody>
+            @foreach (var x in Model.Items)
+            {
+              var expired = x.Status == QuoteStatus.Sent && x.ValidUntil < Ui.TodayUk;
+              <tr>
+                <td><a href="/quotes/@x.Id">@x.Number</a></td>
+                <td>@x.Title</td>
+                <td>@(x.Organisation?.Name ?? x.Contact?.FullName)</td>
+                <td><span class="badge @Ui.BadgeClass(x.Status)">@x.Status</span>@if (expired) { <span class="sub is-overdue">Past validity</span> }</td>
+                <td>@Ui.Date(x.IssueDate)</td>
+                <td>@Ui.Date(x.ValidUntil)</td>
+                <td class="num">@Ui.MoneyExact(x.NetTotal)</td>
+                <td class="num">@Ui.MoneyExact(x.GrossTotal)</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <partial name="_Pager" model="Model" />
+    }
+  </div>
+</section>

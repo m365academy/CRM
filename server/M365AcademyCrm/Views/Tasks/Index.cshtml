@@ -1,0 +1,133 @@
+@model List<Activity>
+@{
+    var view = (string)ViewBag.View;
+    var owner = ViewBag.Owner as string;
+    var nowUtc = DateTime.UtcNow;
+    var endOfToday = Ui.FromUk(Ui.TodayUk.AddDays(1).ToDateTime(TimeOnly.MinValue));
+    var groups = view == "completed"
+        ? new List<(string Title, List<Activity> Items)> { ("Completed", Model) }
+        : new List<(string Title, List<Activity> Items)>
+          {
+              ("Overdue", Model.Where(a => a.DueAtUtc < nowUtc).ToList()),
+              ("Due today", Model.Where(a => a.DueAtUtc >= nowUtc && a.DueAtUtc < endOfToday).ToList()),
+              ("Upcoming", Model.Where(a => a.DueAtUtc >= endOfToday).ToList()),
+          };
+    var ownerQs = owner is null ? "" : $"&owner={Uri.EscapeDataString(owner)}";
+}
+
+<section class="page-header compact">
+  <div class="container">
+    <span class="eyebrow">Follow-ups</span>
+    <h1>Tasks</h1>
+    <p>Calls to make, quotes to chase, dates to confirm. Add tasks from any lead, contact, organisation or deal - or here.</p>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <nav class="tabs" aria-label="Task views">
+      <a href="/tasks?view=open@(ownerQs)" aria-current="@(view != "completed" ? "page" : null)">Open</a>
+      <a href="/tasks?view=completed@(ownerQs)" aria-current="@(view == "completed" ? "page" : null)">Completed</a>
+    </nav>
+
+    <div class="two-col">
+      <div>
+        <form method="get" action="/tasks" class="toolbar">
+          <input type="hidden" name="view" value="@view" />
+          @{ ViewData["OwnerLabel"] = "Assigned to"; }
+          <partial name="_OwnerFilter" model="owner" />
+        </form>
+
+        @foreach (var (title, items) in groups)
+        {
+          <div class="panel">
+            <div class="panel-header"><h2>@title <span class="muted">(@items.Count)</span></h2></div>
+            @if (items.Count == 0)
+            {
+              <p class="empty">Nothing here.</p>
+            }
+            else
+            {
+              <ul class="task-list">
+                @foreach (var t in items)
+                {
+                  <li>
+                    <div>
+                      <div class="task-title"><span class="badge badge-neutral" style="font-size:0.62rem;">@t.Type</span> @t.Subject</div>
+                      <div class="small muted">
+                        @if (t.CompletedAtUtc is not null)
+                        {
+                          <text>Done @Ui.DateTimeText(t.CompletedAtUtc.Value)</text>
+                        }
+                        else
+                        {
+                          <span class="@(t.DueAtUtc < nowUtc ? "is-overdue" : "")">Due @Ui.DateTimeText(t.DueAtUtc!.Value)</span>
+                        }
+                        &middot; @(t.Owner?.DisplayName ?? "Unassigned")
+                        <partial name="_RelatedLinks" model="t" />
+                      </div>
+                      @if (!string.IsNullOrWhiteSpace(t.Details))
+                      {
+                        <div class="timeline-details">@t.Details</div>
+                      }
+                    </div>
+                    <div class="page-actions">
+                      @if (t.CompletedAtUtc is null)
+                      {
+                        <form method="post" action="/activities/@t.Id/complete" class="inline-form">
+                          @Html.AntiForgeryToken()
+                          <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                          <button type="submit" class="btn btn-ghost btn-xs">Done</button>
+                        </form>
+                      }
+                      else
+                      {
+                        <form method="post" action="/activities/@t.Id/reopen" class="inline-form">
+                          @Html.AntiForgeryToken()
+                          <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                          <button type="submit" class="btn btn-ghost btn-xs">Reopen</button>
+                        </form>
+                      }
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="panel-header"><h2>New task</h2></div>
+          <form method="post" action="/activities/create" class="form-grid">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="type" value="Task" />
+            <input type="hidden" name="returnUrl" value="/tasks" />
+            <div class="field">
+              <label for="t-subject">What</label>
+              <input type="text" id="t-subject" name="subject" required maxlength="200" />
+            </div>
+            <div class="field">
+              <label for="t-due">Due (UK time)</label>
+              <input type="datetime-local" id="t-due" name="dueAtUk" required value="@Ui.ToUk(DateTime.UtcNow).Date.AddDays(1).AddHours(9).ToString("yyyy-MM-ddTHH:mm")" />
+            </div>
+            <div class="field">
+              <label for="t-owner">Assign to</label>
+              @{ ViewData["FieldName"] = "ownerId"; ViewData["FieldId"] = "t-owner"; }
+              <partial name="_OwnerSelect" model="(int?)null" />
+              <p class="field-hint">Unassigned = you.</p>
+            </div>
+            <div class="field">
+              <label for="t-details">Details</label>
+              <textarea id="t-details" name="details" maxlength="4000" style="min-height:80px;"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Add task</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

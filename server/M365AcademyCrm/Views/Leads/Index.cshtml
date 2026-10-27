@@ -1,0 +1,108 @@
+@model ListPage<Lead>
+@{
+    var q = Context.Request.Query;
+    string status = q.ContainsKey("status") ? q["status"].ToString() : "open";
+    var exportUrl = "/leads/export" + Context.Request.QueryString;
+    var nowUtc = DateTime.UtcNow;
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <span class="eyebrow">Sales</span>
+      <h1>Leads</h1>
+      <p>Enquiries waiting to be qualified - website contact-form submissions arrive here automatically.</p>
+    </div>
+    <div class="page-actions">
+      <a href="/leads/new" class="btn btn-light btn-sm">+ New lead</a>
+      <a href="/leads/import" class="btn btn-outline btn-sm">Import CSV</a>
+      <a href="@exportUrl" class="btn btn-outline btn-sm">Export CSV</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <form method="get" action="/leads" class="toolbar">
+      <div class="field">
+        <label for="q">Search</label>
+        <input type="search" id="q" name="q" value="@q["q"]" placeholder="Name, email, company, course" />
+      </div>
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status" data-autosubmit>
+          <option value="open" selected="@(status == "open")">Open (new, contacted, qualified)</option>
+          <option value="all" selected="@(status == "all")">All</option>
+          @foreach (var s in Enum.GetValues<LeadStatus>())
+          {
+            <option value="@s" selected="@(status == s.ToString())">@s</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="source">Source</label>
+        <select id="source" name="source" data-autosubmit>
+          <option value="">Any source</option>
+          @foreach (var s in Enum.GetValues<LeadSource>())
+          {
+            <option value="@s" selected="@(q["source"] == s.ToString())">@Ui.Display(s)</option>
+          }
+        </select>
+      </div>
+      <div class="field">
+        <label for="rating">Rating</label>
+        <select id="rating" name="rating" data-autosubmit>
+          <option value="">Any</option>
+          @foreach (var r in Enum.GetValues<LeadRating>())
+          {
+            <option value="@r" selected="@(q["rating"] == r.ToString())">@r</option>
+          }
+        </select>
+      </div>
+      <partial name="_OwnerFilter" model="@q["owner"].ToString()" />
+      <button type="submit" class="btn btn-ghost btn-sm">Apply</button>
+    </form>
+
+    @if (Model.Items.Count == 0)
+    {
+      <div class="note-card">No leads match these filters.</div>
+    }
+    else
+    {
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr><th>Name</th><th>Course of interest</th><th>Source</th><th>Status</th><th>Rating</th><th>Owner</th><th>Received</th></tr>
+          </thead>
+          <tbody>
+            @foreach (var l in Model.Items)
+            {
+              var stale = l.Status == LeadStatus.New && l.CreatedAtUtc < nowUtc.AddDays(-2);
+              <tr>
+                <td>
+                  <a href="/leads/@l.Id">@l.Name</a>
+                  <span class="sub">@(l.Company ?? l.Email)</span>
+                </td>
+                <td>@(l.CourseOfInterest ?? "General enquiry")</td>
+                <td>@Ui.Display(l.Source)</td>
+                <td><span class="badge @Ui.BadgeClass(l.Status)">@l.Status</span></td>
+                <td><span class="badge @Ui.BadgeClass(l.Rating)">@l.Rating</span></td>
+                <td>@(l.Owner?.DisplayName ?? "Unassigned")</td>
+                <td>
+                  @Ui.Date(l.CreatedAtUtc)
+                  @if (stale)
+                  {
+                    <span class="sub is-overdue" title="New for over 48 hours with no status change">Not yet contacted</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <partial name="_Pager" model="Model" />
+    }
+  </div>
+</section>

@@ -1,0 +1,18 @@
+@model string?
+@inject Lookups Lookups
+@{
+    var users = await Lookups.UsersAsync();
+    var label = ViewData["OwnerLabel"] as string ?? "Owner";
+}
+<div class="field">
+  <label for="owner">@label</label>
+  <select id="owner" name="owner" data-autosubmit>
+    <option value="" selected="@(string.IsNullOrEmpty(Model))">Everyone</option>
+    <option value="me" selected="@(Model == "me")">Me</option>
+    <option value="none" selected="@(Model == "none")">Unassigned</option>
+    @foreach (var u in users)
+    {
+      <option value="@u.Id" selected="@(Model == u.Id.ToString())">@u.DisplayName</option>
+    }
+  </select>
+</div>

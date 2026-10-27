@@ -1,0 +1,149 @@
+@model ActivityPanelModel
+@inject CurrentUser CurrentUser
+@{
+    var me = await CurrentUser.GetAsync();
+    var tasks = Model.Items.Where(a => a.IsOpenTask).OrderBy(a => a.DueAtUtc).ToList();
+    var history = Model.Items.Where(a => !a.IsOpenTask).ToList();
+    var nowUtc = DateTime.UtcNow;
+}
+<div class="panel">
+  <div class="panel-header"><h2>Log activity or add a task</h2></div>
+  <form method="post" action="/activities/create" class="form-grid">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="leadId" value="@Model.LeadId" />
+    <input type="hidden" name="contactId" value="@Model.ContactId" />
+    <input type="hidden" name="organisationId" value="@Model.OrganisationId" />
+    <input type="hidden" name="dealId" value="@Model.DealId" />
+    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+    <div class="form-row">
+      <div class="field">
+        <label for="act-type">Type</label>
+        <select id="act-type" name="type">
+          <option value="Call">Call</option>
+          <option value="Email">Email (sent outside the CRM)</option>
+          <option value="Meeting">Meeting</option>
+          <option value="Note" selected>Note</option>
+          <option value="Task">Task / follow-up</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="act-due">Due (UK time) <span class="field-hint" style="display:inline;">&mdash; makes it a task</span></label>
+        <input type="datetime-local" id="act-due" name="dueAtUk" />
+      </div>
+    </div>
+    <div class="field">
+      <label for="act-subject">Subject</label>
+      <input type="text" id="act-subject" name="subject" required maxlength="200" placeholder="e.g. Called re AZ-104 dates for 6 delegates" />
+    </div>
+    <div class="field">
+      <label for="act-details">Details</label>
+      <textarea id="act-details" name="details" maxlength="4000" style="min-height:80px;"></textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary btn-sm">Save</button>
+    </div>
+  </form>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.EmailTo))
+{
+  <div class="panel">
+    <details class="panel-details">
+      <summary>Send an email to @Model.EmailTo</summary>
+      <form method="post" action="/email/send" class="form-grid">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="to" value="@Model.EmailTo" />
+        <input type="hidden" name="toName" value="@Model.EmailToName" />
+        <input type="hidden" name="leadId" value="@Model.LeadId" />
+        <input type="hidden" name="contactId" value="@Model.ContactId" />
+        <input type="hidden" name="organisationId" value="@Model.OrganisationId" />
+        <input type="hidden" name="dealId" value="@Model.DealId" />
+        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        <div class="field">
+          <label for="mail-subject">Subject</label>
+          <input type="text" id="mail-subject" name="subject" required maxlength="200" />
+        </div>
+        <div class="field">
+          <label for="mail-body">Message</label>
+          <textarea id="mail-body" name="body" required maxlength="10000">Hi @(Model.EmailToName?.Split(' ')[0]),
+
+
+@me?.DisplayName
+M365 Academy</textarea>
+          <p class="field-hint">Sent from the shared M365 Academy mailbox; replies come to @(me?.Email ?? "you"). Logged on this timeline automatically.</p>
+        </div>
+        <button type="submit" class="btn btn-primary btn-sm">Send email</button>
+      </form>
+    </details>
+  </div>
+}
+
+<div class="panel">
+  <div class="panel-header"><h2>Timeline</h2></div>
+  @if (Model.Items.Count == 0)
+  {
+    <p class="empty">Nothing logged yet.</p>
+  }
+  else
+  {
+    <ul class="timeline">
+      @foreach (var a in tasks.Concat(history))
+      {
+        var overdue = a.IsOpenTask && a.DueAtUtc < nowUtc;
+        <li class="@(a.IsTask ? "is-task" : "")">
+          <div class="timeline-head">
+            <span class="timeline-subject">
+              @if (a.IsTask)
+              {
+                <span class="badge @(a.CompletedAtUtc is null ? (overdue ? "badge-bad" : "badge-mct") : "badge-good")" style="font-size:0.65rem;">@(a.CompletedAtUtc is null ? (overdue ? "Overdue task" : "Task") : "Done")</span>
+              }
+              else
+              {
+                <span class="badge badge-neutral" style="font-size:0.65rem;">@a.Type</span>
+              }
+              @a.Subject
+            </span>
+            <span class="timeline-meta">
+              @if (a.IsOpenTask)
+              {
+                <span class="@(overdue ? "is-overdue" : "")">Due @Ui.DateTimeText(a.DueAtUtc!.Value)</span>
+              }
+              else
+              {
+                @Ui.DateTimeText(a.CreatedAtUtc)
+              }
+              @if (a.Owner is not null) { <text>&middot; @a.Owner.DisplayName</text> }
+            </span>
+          </div>
+          @if (!string.IsNullOrWhiteSpace(a.Details))
+          {
+            <div class="timeline-details">@a.Details</div>
+          }
+          <div class="timeline-actions">
+            @if (a.IsOpenTask)
+            {
+              <form method="post" action="/activities/@a.Id/complete" class="inline-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <button type="submit" class="btn btn-ghost btn-xs">Mark done</button>
+              </form>
+            }
+            else if (a.IsTask)
+            {
+              <form method="post" action="/activities/@a.Id/reopen" class="inline-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                <button type="submit" class="btn btn-ghost btn-xs">Reopen</button>
+              </form>
+            }
+            <form method="post" action="/activities/@a.Id/delete" class="inline-form" data-confirm="Delete this activity?">
+              @Html.AntiForgeryToken()
+              <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+              <button type="submit" class="btn btn-ghost btn-xs">Delete</button>
+            </form>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</div>

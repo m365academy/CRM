@@ -1,0 +1,72 @@
+@model ListPage<Organisation>
+@{
+    var q = Context.Request.Query;
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <span class="eyebrow">Sales</span>
+      <h1>Organisations</h1>
+      <p>Companies and public-sector bodies we sell training to.</p>
+    </div>
+    <div class="page-actions">
+      <a href="/organisations/new" class="btn btn-light btn-sm">+ New organisation</a>
+      <a href="/organisations/export@(Context.Request.QueryString)" class="btn btn-outline btn-sm">Export CSV</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <form method="get" action="/organisations" class="toolbar">
+      <div class="field">
+        <label for="q">Search</label>
+        <input type="search" id="q" name="q" value="@q["q"]" placeholder="Name, town, industry" />
+      </div>
+      <div class="field">
+        <label for="type">Type</label>
+        <select id="type" name="type" data-autosubmit>
+          <option value="">All types</option>
+          @foreach (var t in Enum.GetValues<OrganisationType>())
+          {
+            <option value="@t" selected="@(q["type"] == t.ToString())">@t</option>
+          }
+        </select>
+      </div>
+      <partial name="_OwnerFilter" model="@q["owner"].ToString()" />
+      <button type="submit" class="btn btn-ghost btn-sm">Apply</button>
+    </form>
+
+    @if (Model.Items.Count == 0)
+    {
+      <div class="note-card">No organisations match.</div>
+    }
+    else
+    {
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Name</th><th>Type</th><th>Industry</th><th>Town</th><th class="num">Contacts</th><th class="num">Open pipeline</th><th class="num">Won to date</th><th>Owner</th></tr></thead>
+          <tbody>
+            @foreach (var o in Model.Items)
+            {
+              <tr>
+                <td><a href="/organisations/@o.Id">@o.Name</a></td>
+                <td><span class="badge @Ui.BadgeClass(o.Type)">@o.Type</span></td>
+                <td>@o.Industry</td>
+                <td>@o.City</td>
+                <td class="num">@o.Contacts.Count</td>
+                <td class="num">@Ui.Money(o.Deals.Where(d => d.IsOpen).Sum(d => d.Value))</td>
+                <td class="num">@Ui.Money(o.Deals.Where(d => d.Stage == DealStage.Won).Sum(d => d.Value))</td>
+                <td>@(o.Owner?.DisplayName ?? "Unassigned")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <partial name="_Pager" model="Model" />
+    }
+  </div>
+</section>

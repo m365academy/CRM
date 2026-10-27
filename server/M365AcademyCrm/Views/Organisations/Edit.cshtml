@@ -1,0 +1,111 @@
+@model Organisation
+@{
+    var isNew = Model.Id == 0;
+    var action = isNew ? "/organisations/new" : $"/organisations/{Model.Id}/edit";
+}
+
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb"><a href="/organisations">Organisations</a> / @(isNew ? "New" : Model.Name)</div>
+    <h1>@(isNew ? "New organisation" : $"Edit {Model.Name}")</h1>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <div class="panel form-panel">
+      <form method="post" action="@action" class="form-grid">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="validation-summary-errors"></div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="Name">Name</label>
+            <input asp-for="Name" required maxlength="200" />
+          </div>
+          <div class="field">
+            <label asp-for="Type">Type</label>
+            <select asp-for="Type">
+              @foreach (var t in Enum.GetValues<OrganisationType>())
+              {
+                <option value="@t" selected="@(Model.Type == t)">@t</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="Industry">Industry / sector</label>
+            <select asp-for="Industry">
+              <option value="">- Not set -</option>
+              @foreach (var i in Ui.Industries)
+              {
+                <option value="@i" selected="@(Model.Industry == i)">@i</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label asp-for="Size">Employees</label>
+            <select asp-for="Size">
+              <option value="">- Not set -</option>
+              @foreach (var s in Ui.OrganisationSizes)
+              {
+                <option value="@s" selected="@(Model.Size == s)">@s</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label for="OwnerId">Account owner</label>
+            <partial name="_OwnerSelect" model="Model.OwnerId" />
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="Website">Website</label>
+            <input asp-for="Website" type="url" maxlength="300" placeholder="https://" />
+          </div>
+          <div class="field">
+            <label asp-for="Phone">Phone</label>
+            <input asp-for="Phone" type="tel" maxlength="30" />
+          </div>
+          <div class="field">
+            <label asp-for="Email">General email</label>
+            <input asp-for="Email" type="email" maxlength="254" />
+          </div>
+        </div>
+        <p class="form-section-title">Address (for quotes and onsite delivery)</p>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="AddressLine1">Address line 1</label>
+            <input asp-for="AddressLine1" maxlength="200" />
+          </div>
+          <div class="field">
+            <label asp-for="AddressLine2">Address line 2</label>
+            <input asp-for="AddressLine2" maxlength="200" />
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="City">Town / city</label>
+            <input asp-for="City" maxlength="100" />
+          </div>
+          <div class="field">
+            <label asp-for="Postcode">Postcode</label>
+            <input asp-for="Postcode" maxlength="20" />
+          </div>
+          <div class="field">
+            <label asp-for="Country">Country</label>
+            <input asp-for="Country" maxlength="100" />
+          </div>
+        </div>
+        <div class="field">
+          <label asp-for="Notes">Notes</label>
+          <textarea asp-for="Notes" maxlength="4000"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-sm">@(isNew ? "Create organisation" : "Save changes")</button>
+          <a href="@(isNew ? "/organisations" : $"/organisations/{Model.Id}")" class="btn btn-ghost btn-sm">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

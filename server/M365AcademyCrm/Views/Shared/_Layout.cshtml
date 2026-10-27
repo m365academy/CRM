@@ -1,0 +1,96 @@
+@inject CurrentUser CurrentUser
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
+    var area = ViewContext.RouteData.Values["area"]?.ToString() ?? "";
+    string Current(string name) => controller == name && area == "" ? "aria-current=\"page\"" : "";
+    var signedIn = User.IsInRole(CrmRoles.User) || User.IsInRole(CrmRoles.Admin);
+    var me = signedIn ? await CurrentUser.GetAsync() : null;
+}
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>@ViewData["Title"]</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="theme-color" content="#17356f" />
+
+  <link rel="icon" type="image/svg+xml" href="~/assets/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="~/assets/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="~/assets/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="~/assets/apple-touch-icon.png" />
+
+  <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true" />
+  <link rel="stylesheet" href="~/css/crm.css" asp-append-version="true" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a href="/" class="brand">
+        <img src="/assets/m365new.png" alt="M365 Academy&reg;" class="brand-logo" />
+        <span class="brand-tag">CRM</span>
+      </a>
+      @if (signedIn)
+      {
+        <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="primary-nav">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+        </button>
+        <ul class="nav-links" id="primary-nav">
+          <li><a href="/" @Html.Raw(Current("Dashboard"))>Dashboard</a></li>
+          <li><a href="/leads" @Html.Raw(Current("Leads"))>Leads</a></li>
+          <li><a href="/contacts" @Html.Raw(Current("Contacts"))>Contacts</a></li>
+          <li><a href="/organisations" @Html.Raw(Current("Organisations"))>Organisations</a></li>
+          <li><a href="/deals" @Html.Raw(Current("Deals"))>Pipeline</a></li>
+          <li><a href="/tasks" @Html.Raw(Current("Activities"))>Tasks</a></li>
+          <li><a href="/quotes" @Html.Raw(Current("Quotes"))>Quotes</a></li>
+          <li><a href="/reports" @Html.Raw(Current("Reports"))>Reports</a></li>
+          @if (User.IsInRole(CrmRoles.Admin))
+          {
+            <li class="nav-dropdown">
+              <details>
+                <summary>Admin</summary>
+                <ul class="nav-dropdown-menu">
+                  <li><a href="/admin/courses">Course catalogue</a></li>
+                  <li><a href="/admin/users">Users</a></li>
+                </ul>
+              </details>
+            </li>
+          }
+        </ul>
+        <div class="nav-cta">
+          <form method="get" action="/search" class="nav-search" role="search">
+            <label for="nav-search-q" class="visually-hidden">Search the CRM</label>
+            <input type="search" id="nav-search-q" name="q" placeholder="Search&hellip;" />
+          </form>
+          @if (me is not null)
+          {
+            <span class="nav-user">@me.DisplayName</span>
+          }
+          <a href="/account/signout" class="btn btn-ghost btn-sm">Sign out</a>
+        </div>
+      }
+    </div>
+  </header>
+
+  <main id="main">
+    @if (signedIn)
+    {
+      @* One token on every page for the board's fetch() calls; forms carry their own. *@
+      @Html.AntiForgeryToken()
+    }
+    @RenderBody()
+  </main>
+
+  <footer class="crm-footer">
+    <div class="container">
+      <span>&copy; @DateTime.UtcNow.Year M365 Academy&reg; CRM &middot; internal use only</span>
+      <span><a href="https://m365academy.cloud" target="_blank" rel="noopener">m365academy.cloud</a></span>
+    </div>
+  </footer>
+
+  <script src="~/js/crm.js" asp-append-version="true"></script>
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

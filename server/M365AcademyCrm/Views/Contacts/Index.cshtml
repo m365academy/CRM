@@ -1,0 +1,60 @@
+@model ListPage<Contact>
+@{
+    var q = Context.Request.Query;
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <span class="eyebrow">Sales</span>
+      <h1>Contacts</h1>
+      <p>Buyers, training managers and delegates.</p>
+    </div>
+    <div class="page-actions">
+      <a href="/contacts/new" class="btn btn-light btn-sm">+ New contact</a>
+      <a href="/contacts/import" class="btn btn-outline btn-sm">Import CSV</a>
+      <a href="/contacts/export@(Context.Request.QueryString)" class="btn btn-outline btn-sm">Export CSV</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <form method="get" action="/contacts" class="toolbar">
+      <div class="field">
+        <label for="q">Search</label>
+        <input type="search" id="q" name="q" value="@q["q"]" placeholder="Name, email, organisation" />
+      </div>
+      <partial name="_OwnerFilter" model="@q["owner"].ToString()" />
+      <button type="submit" class="btn btn-ghost btn-sm">Apply</button>
+    </form>
+
+    @if (Model.Items.Count == 0)
+    {
+      <div class="note-card">No contacts match. <a href="/contacts/new">Add one</a>, or convert a lead.</div>
+    }
+    else
+    {
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Name</th><th>Organisation</th><th>Email</th><th>Phone</th><th>Owner</th></tr></thead>
+          <tbody>
+            @foreach (var c in Model.Items)
+            {
+              <tr>
+                <td><a href="/contacts/@c.Id">@c.FullName</a><span class="sub">@c.JobTitle</span></td>
+                <td>@if (c.Organisation is not null) { <a href="/organisations/@c.Organisation.Id">@c.Organisation.Name</a> }</td>
+                <td>@if (c.Email is not null) { <a href="mailto:@c.Email">@c.Email</a> }</td>
+                <td>@(c.Phone ?? c.Mobile)</td>
+                <td>@(c.Owner?.DisplayName ?? "Unassigned")</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <partial name="_Pager" model="Model" />
+    }
+  </div>
+</section>

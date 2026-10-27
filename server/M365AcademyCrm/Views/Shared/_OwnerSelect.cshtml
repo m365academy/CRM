@@ -1,0 +1,14 @@
+@model int?
+@inject Lookups Lookups
+@{
+    var users = await Lookups.UsersAsync(Model);
+    var name = ViewData["FieldName"] as string ?? "OwnerId";
+    var id = ViewData["FieldId"] as string ?? name;
+}
+<select id="@id" name="@name">
+  <option value="">Unassigned</option>
+  @foreach (var u in users)
+  {
+    <option value="@u.Id" selected="@(Model == u.Id)">@u.DisplayName@(u.IsActive ? "" : " (inactive)")</option>
+  }
+</select>

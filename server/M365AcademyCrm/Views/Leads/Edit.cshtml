@@ -1,0 +1,128 @@
+@model Lead
+@inject Lookups Lookups
+@{
+    var isNew = Model.Id == 0;
+    var courses = await Lookups.CoursesAsync(Model.CourseId);
+    var action = isNew ? "/leads/new" : $"/leads/{Model.Id}/edit";
+}
+
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb"><a href="/leads">Leads</a> / @(isNew ? "New" : Model.Name)</div>
+    <h1>@(isNew ? "New lead" : $"Edit {Model.Name}")</h1>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <div class="panel form-panel">
+      <form method="post" action="@action" class="form-grid">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="validation-summary-errors"></div>
+
+        <p class="form-section-title">Who</p>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="Name">Name</label>
+            <input asp-for="Name" required maxlength="120" />
+          </div>
+          <div class="field">
+            <label asp-for="Company">Company / organisation</label>
+            <input asp-for="Company" maxlength="200" />
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="Email">Email</label>
+            <input asp-for="Email" type="email" maxlength="254" />
+          </div>
+          <div class="field">
+            <label asp-for="Phone">Phone</label>
+            <input asp-for="Phone" type="tel" maxlength="30" />
+          </div>
+          <div class="field">
+            <label asp-for="JobTitle">Job title</label>
+            <input asp-for="JobTitle" maxlength="120" />
+          </div>
+        </div>
+
+        <p class="form-section-title">Interest</p>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="CourseId">Course of interest</label>
+            <select asp-for="CourseId">
+              <option value="">General / not sure yet</option>
+              @foreach (var c in courses)
+              {
+                <option value="@c.Id" selected="@(Model.CourseId == c.Id)">@c.DisplayName</option>
+              }
+            </select>
+            @if (Model.CourseId is null && !string.IsNullOrEmpty(Model.CourseOfInterest))
+            {
+              <input type="hidden" asp-for="CourseOfInterest" />
+              <p class="field-hint">Submitted as: @Model.CourseOfInterest</p>
+            }
+          </div>
+          <div class="field">
+            <label asp-for="Source">Source</label>
+            <select asp-for="Source">
+              @foreach (var s in Enum.GetValues<LeadSource>())
+              {
+                <option value="@s" selected="@(Model.Source == s)">@Ui.Display(s)</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label asp-for="EstimatedDelegates">Estimated delegates</label>
+            <input asp-for="EstimatedDelegates" type="number" min="1" max="10000" />
+          </div>
+          <div class="field">
+            <label asp-for="EstimatedValue">Estimated value (&pound;, ex VAT)</label>
+            <input asp-for="EstimatedValue" type="number" min="0" step="0.01" />
+          </div>
+        </div>
+        <div class="field">
+          <label asp-for="Message">Message / notes</label>
+          <textarea asp-for="Message" maxlength="4000"></textarea>
+        </div>
+
+        <p class="form-section-title">Qualification</p>
+        <div class="form-row-3">
+          <div class="field">
+            <label asp-for="Status">Status</label>
+            <select asp-for="Status">
+              @foreach (var s in Enum.GetValues<LeadStatus>().Where(s => s != LeadStatus.Converted || Model.Status == LeadStatus.Converted))
+              {
+                <option value="@s" selected="@(Model.Status == s)">@s</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label asp-for="Rating">Rating</label>
+            <select asp-for="Rating">
+              @foreach (var r in Enum.GetValues<LeadRating>())
+              {
+                <option value="@r" selected="@(Model.Rating == r)">@r</option>
+              }
+            </select>
+          </div>
+          <div class="field">
+            <label for="OwnerId">Owner</label>
+            <partial name="_OwnerSelect" model="Model.OwnerId" />
+          </div>
+        </div>
+        <div class="field">
+          <label asp-for="UnqualifiedReason">Unqualified reason (if unqualified)</label>
+          <input asp-for="UnqualifiedReason" maxlength="200" />
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-sm">@(isNew ? "Create lead" : "Save changes")</button>
+          <a href="@(isNew ? "/leads" : $"/leads/{Model.Id}")" class="btn btn-ghost btn-sm">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>

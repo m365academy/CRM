@@ -1,0 +1,56 @@
+@model List<SalesUser>
+@{
+    var active = Model.Where(u => u.IsActive).ToList();
+}
+
+<section class="page-header compact">
+  <div class="container">
+    <div class="breadcrumb">Admin / Users</div>
+    <span class="eyebrow">CRM admin</span>
+    <h1>Users</h1>
+    <p>Everyone who has signed in. Access itself is granted by the CRM Entra groups; here you can deactivate a leaver and hand their open work to someone else.</p>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role at last sign-in</th><th>Last sign-in</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          @foreach (var u in Model)
+          {
+            <tr>
+              <td>@u.DisplayName</td>
+              <td>@u.Email</td>
+              <td>@(u.IsAdmin ? "Admin" : "User")</td>
+              <td>@Ui.DateTimeText(u.LastSignInUtc)</td>
+              <td>@if (u.IsActive) { <span class="badge badge-good">Active</span> } else { <span class="badge badge-neutral">Deactivated</span> }</td>
+              <td>
+                <div class="page-actions">
+                  <form method="post" action="/admin/users/@u.Id/active" class="inline-form" data-confirm="@(u.IsActive ? $"Deactivate {u.DisplayName}? They'll be denied at next sign-in." : $"Reactivate {u.DisplayName}?")">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="active" value="@(u.IsActive ? "false" : "true")" />
+                    <button type="submit" class="btn btn-ghost btn-xs">@(u.IsActive ? "Deactivate" : "Reactivate")</button>
+                  </form>
+                  <form method="post" action="/admin/users/@u.Id/reassign" class="inline-form" data-confirm="Move all of @u.DisplayName's open leads, deals and tasks?">
+                    @Html.AntiForgeryToken()
+                    <label class="visually-hidden" for="to-@u.Id">Reassign open work to</label>
+                    <select id="to-@u.Id" name="toUserId" style="font:inherit;font-size:0.8rem;padding:0.25rem;border:1px solid var(--color-border);border-radius:6px;">
+                      @foreach (var other in active.Where(o => o.Id != u.Id))
+                      {
+                        <option value="@other.Id">@other.DisplayName</option>
+                      }
+                    </select>
+                    <button type="submit" class="btn btn-ghost btn-xs" disabled="@(active.All(o => o.Id == u.Id))">Reassign open work</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,89 @@
+@model DealBoardModel
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <span class="eyebrow">Sales</span>
+      <h1>Pipeline</h1>
+      <p>Drag a deal to another column to move it. Won and Lost show the last 30 days.</p>
+    </div>
+    <div class="page-actions">
+      <a href="/deals/new" class="btn btn-light btn-sm">+ New deal</a>
+      <a href="/deals/list" class="btn btn-outline btn-sm">List view</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <form method="get" action="/deals" class="toolbar">
+      <partial name="_OwnerFilter" model="Model.Owner" />
+    </form>
+
+    <div class="board" data-board>
+      @foreach (var (stage, deals) in Model.Columns)
+      {
+        var total = deals.Sum(d => d.Value);
+        var weighted = deals.Sum(d => d.WeightedValue);
+        <div class="board-col" data-stage="@stage" aria-label="@Ui.Display(stage)">
+          <div class="board-col-head">
+            <span class="board-col-title">@Ui.Display(stage) <span class="muted" data-count>@deals.Count</span></span>
+            <span class="board-col-total">
+              <span data-total>@Ui.Money(total)</span>
+              @if (stage is not (DealStage.Won or DealStage.Lost))
+              {
+                <text>&middot; </text><span data-weighted>@Ui.Money(weighted) weighted</span>
+              }
+            </span>
+          </div>
+          <div class="board-cards">
+            @foreach (var d in deals)
+            {
+              var late = d.IsOpen && d.ExpectedCloseDate < Ui.TodayUk;
+              <div class="board-card" draggable="true" data-deal-id="@d.Id" data-value="@d.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-probability="@d.Probability">
+                <a href="/deals/@d.Id">@d.Title</a>
+                <div class="small muted">@(d.Organisation?.Name ?? "No organisation")@(d.Course is null ? "" : $" · {d.Course.Code}")</div>
+                <div class="board-card-meta">
+                  <span class="board-card-value">@Ui.Money(d.Value)</span>
+                  <span class="@(late ? "is-overdue" : "")" title="Expected close">@(d.ClosedAtUtc is not null ? Ui.Date(d.ClosedAtUtc.Value) : d.ExpectedCloseDate is null ? "No date" : (late ? "Late: " : "") + Ui.Date(d.ExpectedCloseDate))</span>
+                </div>
+                <div class="board-card-meta"><span>@d.Delegates delegate@(d.Delegates == 1 ? "" : "s")</span><span>@(d.Owner?.DisplayName ?? "Unassigned")</span></div>
+                <div class="stage-select">
+                  <label class="visually-hidden" for="stage-@d.Id">Move @d.Title to stage</label>
+                  <select id="stage-@d.Id">
+                    @foreach (var s in Enum.GetValues<DealStage>())
+                    {
+                      <option value="@s" selected="@(s == stage)">@Ui.Display(s)</option>
+                    }
+                  </select>
+                </div>
+              </div>
+            }
+          </div>
+          <p class="empty small" data-empty @(deals.Count > 0 ? "hidden" : "")>No deals</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<dialog id="lost-dialog" class="crm-dialog" aria-labelledby="lost-title">
+  <form method="dialog" class="form-grid">
+    <h2 id="lost-title" style="font-size:1.1rem;">Why was it lost?</h2>
+    <div class="field">
+      <label for="lost-reason">Reason</label>
+      <select id="lost-reason">
+        @foreach (var r in Ui.LostReasons)
+        {
+          <option value="@r">@r</option>
+        }
+      </select>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary btn-sm">Mark lost</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-cancel>Cancel</button>
+    </div>
+  </form>
+</dialog>

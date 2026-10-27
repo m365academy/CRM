@@ -1,0 +1,25 @@
+@model Quote
+@{
+    Layout = null;
+}
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>@ViewData["Title"]</title>
+  <link rel="icon" type="image/svg+xml" href="~/assets/favicon.svg" />
+  <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true" />
+  <link rel="stylesheet" href="~/css/crm.css" asp-append-version="true" />
+</head>
+<body>
+  <div class="print-toolbar">
+    <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">Print / save as PDF</button>
+    <a href="/quotes/@Model.Id" class="btn btn-ghost btn-sm">Back to quote</a>
+  </div>
+  <div class="print-page">
+    <partial name="_QuoteDocument" model="Model" />
+  </div>
+</body>
+</html>

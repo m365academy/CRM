@@ -1,0 +1,27 @@
+@model IPaged
+@{
+    string UrlFor(int page)
+    {
+        var query = Context.Request.Query
+            .Where(kv => kv.Key != "page")
+            .SelectMany(kv => kv.Value.Select(v => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(v ?? "")}"))
+            .Append($"page={page}");
+        return $"{Context.Request.Path}?{string.Join("&", query)}";
+    }
+}
+<div class="pager">
+  <span>@Model.Total.ToString("N0") result@(Model.Total == 1 ? "" : "s") &middot; page @Model.Page of @Model.PageCount</span>
+  @if (Model.PageCount > 1)
+  {
+    <span class="pager-links">
+      @if (Model.Page > 1)
+      {
+        <a class="btn btn-ghost btn-xs" href="@UrlFor(Model.Page - 1)">&laquo; Previous</a>
+      }
+      @if (Model.Page < Model.PageCount)
+      {
+        <a class="btn btn-ghost btn-xs" href="@UrlFor(Model.Page + 1)">Next &raquo;</a>
+      }
+    </span>
+  }
+</div>

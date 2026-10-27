@@ -1,0 +1,139 @@
+@model Lead
+@{
+    var activities = (List<Activity>)ViewBag.Activities;
+    var matchingContacts = ViewBag.MatchingContacts as List<Contact> ?? new();
+    var otherLeads = ViewBag.OtherLeads as List<Lead> ?? new();
+    var activityPanel = new ActivityPanelModel { Items = activities, LeadId = Model.Id, ReturnUrl = $"/leads/{Model.Id}", EmailTo = Model.Email, EmailToName = Model.Name };
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <div class="breadcrumb"><a href="/leads">Leads</a> / @Model.Name</div>
+      <h1>@Model.Name <span class="badge @Ui.BadgeClass(Model.Status)">@Model.Status</span> <span class="badge @Ui.BadgeClass(Model.Rating)">@Model.Rating</span></h1>
+      <p>@(Model.Company ?? "No company given") &middot; @Ui.Display(Model.Source) &middot; received @Ui.DateTimeText(Model.CreatedAtUtc)</p>
+    </div>
+    <div class="page-actions">
+      @if (Model.IsOpen)
+      {
+        <a href="/leads/@Model.Id/convert" class="btn btn-light btn-sm">Convert to deal</a>
+      }
+      <a href="/leads/@Model.Id/edit" class="btn btn-outline btn-sm">Edit</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <div class="two-col">
+      <div>
+        @if (Model.Status == LeadStatus.Converted)
+        {
+          <div class="flash flash-success">
+            Converted @(Model.ConvertedAtUtc is null ? "" : Ui.Date(Model.ConvertedAtUtc.Value)):
+            @if (Model.ConvertedContactId is not null) { <a href="/contacts/@Model.ConvertedContactId">contact</a> }
+            @if (Model.ConvertedOrganisationId is not null) { <text> &middot; </text><a href="/organisations/@Model.ConvertedOrganisationId">organisation</a> }
+            @if (Model.ConvertedDealId is not null) { <text> &middot; </text><a href="/deals/@Model.ConvertedDealId">deal</a> }
+          </div>
+        }
+
+        @if (matchingContacts.Count > 0 || otherLeads.Count > 0)
+        {
+          <div class="note-card" style="margin-bottom:1.5rem;">
+            <strong>Already known:</strong>
+            @foreach (var c in matchingContacts)
+            {
+              <div>Contact <a href="/contacts/@c.Id">@c.FullName</a>@(c.Organisation is null ? "" : $" at {c.Organisation.Name}") has this email address.</div>
+            }
+            @foreach (var l in otherLeads)
+            {
+              <div>Earlier lead <a href="/leads/@l.Id">@l.Name</a> (@l.Status, @Ui.Date(l.CreatedAtUtc)).</div>
+            }
+          </div>
+        }
+
+        <div class="panel">
+          <div class="panel-header"><h2>Enquiry</h2></div>
+          <dl class="detail-list">
+            <dt>Email</dt><dd>@if (Model.Email is not null) { <a href="mailto:@Model.Email">@Model.Email</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Phone</dt><dd>@if (Model.Phone is not null) { <a href="tel:@Model.Phone">@Model.Phone</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Job title</dt><dd>@(Model.JobTitle ?? "-")</dd>
+            <dt>Course of interest</dt><dd>@(Model.Course?.DisplayName ?? Model.CourseOfInterest ?? "General enquiry")</dd>
+            <dt>Est. delegates</dt><dd>@(Model.EstimatedDelegates?.ToString() ?? "-")</dd>
+            <dt>Est. value</dt><dd>@(Model.EstimatedValue is null ? "-" : Ui.Money(Model.EstimatedValue.Value))</dd>
+            <dt>Owner</dt><dd>@(Model.Owner?.DisplayName ?? "Unassigned")</dd>
+            @if (Model.UnqualifiedReason is not null)
+            {
+              <dt>Unqualified because</dt><dd>@Model.UnqualifiedReason</dd>
+            }
+          </dl>
+          @if (!string.IsNullOrWhiteSpace(Model.Message))
+          {
+            <h3 style="font-size:0.95rem; margin-top:1.25rem;">Message</h3>
+            <div class="prewrap note-card">@Model.Message</div>
+          }
+        </div>
+
+        @if (Model.IsOpen)
+        {
+          <div class="panel">
+            <div class="panel-header"><h2>Quick actions</h2></div>
+            <div class="form-actions">
+              @if (Model.OwnerId is null)
+              {
+                <form method="post" action="/leads/@Model.Id/assign-to-me" class="inline-form">
+                  @Html.AntiForgeryToken()
+                  <button type="submit" class="btn btn-primary btn-sm">Assign to me</button>
+                </form>
+              }
+              @if (Model.Status == LeadStatus.New)
+              {
+                <form method="post" action="/leads/@Model.Id/status" class="inline-form">
+                  @Html.AntiForgeryToken()
+                  <input type="hidden" name="status" value="Contacted" />
+                  <button type="submit" class="btn btn-ghost btn-sm">Mark contacted</button>
+                </form>
+              }
+              @if (Model.Status != LeadStatus.Qualified)
+              {
+                <form method="post" action="/leads/@Model.Id/status" class="inline-form">
+                  @Html.AntiForgeryToken()
+                  <input type="hidden" name="status" value="Qualified" />
+                  <button type="submit" class="btn btn-ghost btn-sm">Mark qualified</button>
+                </form>
+              }
+            </div>
+            <form method="post" action="/leads/@Model.Id/status" class="toolbar" style="margin:1rem 0 0;">
+              @Html.AntiForgeryToken()
+              <input type="hidden" name="status" value="Unqualified" />
+              <div class="field" style="flex:1;">
+                <label for="reason">Not a fit? Reason</label>
+                <input type="text" id="reason" name="reason" maxlength="200" placeholder="e.g. Wants free self-paced only, student, spam" />
+              </div>
+              <button type="submit" class="btn btn-danger btn-sm">Mark unqualified</button>
+            </form>
+          </div>
+        }
+        else if (Model.Status == LeadStatus.Unqualified)
+        {
+          <form method="post" action="/leads/@Model.Id/status" style="margin-bottom:1.5rem;">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="status" value="Contacted" />
+            <button type="submit" class="btn btn-ghost btn-sm">Reopen lead</button>
+          </form>
+        }
+
+        <form method="post" action="/leads/@Model.Id/delete" data-confirm="Delete this lead permanently? Its activities are deleted too unless they belong to a contact or deal.">
+          @Html.AntiForgeryToken()
+          <button type="submit" class="btn btn-danger btn-sm">Delete lead</button>
+        </form>
+      </div>
+
+      <div>
+        <partial name="_ActivityPanel" model="activityPanel" />
+      </div>
+    </div>
+  </div>
+</section>

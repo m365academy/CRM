@@ -1,0 +1,17 @@
+@model Activity
+@if (Model.Deal is not null)
+{
+  <text>&middot; <a href="/deals/@Model.Deal.Id">@Model.Deal.Title</a></text>
+}
+else if (Model.Contact is not null)
+{
+  <text>&middot; <a href="/contacts/@Model.Contact.Id">@Model.Contact.FullName</a></text>
+}
+else if (Model.Organisation is not null)
+{
+  <text>&middot; <a href="/organisations/@Model.Organisation.Id">@Model.Organisation.Name</a></text>
+}
+else if (Model.Lead is not null)
+{
+  <text>&middot; <a href="/leads/@Model.Lead.Id">@Model.Lead.Name</a></text>
+}

@@ -1,0 +1,104 @@
+@model Deal
+@{
+    var quotes = (List<Quote>)ViewBag.Quotes;
+    var activities = (List<Activity>)ViewBag.Activities;
+    var late = Model.IsOpen && Model.ExpectedCloseDate < Ui.TodayUk;
+    var activityPanel = new ActivityPanelModel { Items = activities, DealId = Model.Id, ContactId = Model.ContactId, OrganisationId = Model.OrganisationId, ReturnUrl = $"/deals/{Model.Id}", EmailTo = Model.Contact?.Email, EmailToName = Model.Contact?.FullName };
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <div class="breadcrumb"><a href="/deals">Pipeline</a> / @Model.Title</div>
+      <h1>@Model.Title <span class="badge @Ui.BadgeClass(Model.Stage)">@Ui.Display(Model.Stage)</span></h1>
+      <p>@Ui.Money(Model.Value) &middot; @Model.Probability% &middot; @Model.Delegates delegate@(Model.Delegates == 1 ? "" : "s") &middot; @Ui.Display(Model.DeliveryFormat)</p>
+    </div>
+    <div class="page-actions">
+      <a href="/quotes/new?dealId=@Model.Id" class="btn btn-light btn-sm">+ Quote</a>
+      <a href="/deals/@Model.Id/edit" class="btn btn-outline btn-sm">Edit</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+    <div class="two-col">
+      <div>
+        <div class="panel">
+          <div class="panel-header"><h2>Stage</h2></div>
+          <div class="stage-steps">
+            @foreach (var s in Enum.GetValues<DealStage>().Where(s => s != DealStage.Lost))
+            {
+              <form method="post" action="/deals/@Model.Id/stage" class="inline-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="stage" value="@s" />
+                <button type="submit" aria-current="@(Model.Stage == s ? "step" : null)">@Ui.Display(s)</button>
+              </form>
+            }
+          </div>
+          @if (Model.Stage != DealStage.Lost)
+          {
+            <form method="post" action="/deals/@Model.Id/stage" class="toolbar" style="margin:1rem 0 0;">
+              @Html.AntiForgeryToken()
+              <input type="hidden" name="stage" value="Lost" />
+              <div class="field" style="flex:1;">
+                <label for="lostReason">Lost? Reason</label>
+                <select id="lostReason" name="lostReason">
+                  @foreach (var r in Ui.LostReasons)
+                  {
+                    <option value="@r">@r</option>
+                  }
+                </select>
+              </div>
+              <button type="submit" class="btn btn-danger btn-sm">Mark lost</button>
+            </form>
+          }
+          else
+          {
+            <p class="small" style="margin:1rem 0 0;"><span class="badge badge-bad">Lost</span> @(Model.LostReason ?? "No reason given") &middot; @(Model.ClosedAtUtc is null ? "" : Ui.Date(Model.ClosedAtUtc.Value)). Click a stage above to reopen.</p>
+          }
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Details</h2></div>
+          <dl class="detail-list">
+            <dt>Organisation</dt><dd>@if (Model.Organisation is not null) { <a href="/organisations/@Model.Organisation.Id">@Model.Organisation.Name</a> } else { <span class="muted">-</span> }</dd>
+            <dt>Contact</dt><dd>@if (Model.Contact is not null) { <a href="/contacts/@Model.Contact.Id">@Model.Contact.FullName</a> @if (Model.Contact.Email is not null) { <span class="muted">&middot; @Model.Contact.Email</span> } } else { <span class="muted">-</span> }</dd>
+            <dt>Course</dt><dd>@(Model.Course?.DisplayName ?? "Not set / bespoke")</dd>
+            <dt>Format</dt><dd>@Ui.Display(Model.DeliveryFormat)</dd>
+            <dt>Delegates</dt><dd>@Model.Delegates</dd>
+            <dt>Value</dt><dd>@Ui.MoneyExact(Model.Value) ex VAT <span class="muted">(@Ui.Money(Model.WeightedValue) weighted)</span></dd>
+            <dt>Expected close</dt><dd class="@(late ? "is-overdue" : "")">@(Model.ExpectedCloseDate is null ? "-" : Ui.Date(Model.ExpectedCloseDate))@(late ? " (passed - update it or close the deal)" : "")</dd>
+            @if (Model.ClosedAtUtc is not null)
+            {
+              <dt>Closed</dt><dd>@Ui.Date(Model.ClosedAtUtc.Value)</dd>
+            }
+            <dt>Preferred dates</dt><dd>@(Model.PreferredDates ?? "-")</dd>
+            <dt>PO number</dt><dd>@(Model.PurchaseOrderNumber ?? "-")</dd>
+            <dt>Source</dt><dd>@Ui.Display(Model.Source)@if (Model.LeadId is not null) { <text> &middot; </text><a href="/leads/@Model.LeadId">original lead</a> }</dd>
+            <dt>Owner</dt><dd>@(Model.Owner?.DisplayName ?? "Unassigned")</dd>
+            <dt>Created</dt><dd>@Ui.Date(Model.CreatedAtUtc)</dd>
+          </dl>
+          @if (!string.IsNullOrWhiteSpace(Model.Notes))
+          {
+            <div class="prewrap note-card" style="margin-top:1rem;">@Model.Notes</div>
+          }
+        </div>
+
+        <div class="panel panel-flush">
+          <div class="panel-header"><h2>Quotes</h2><a href="/quotes/new?dealId=@Model.Id" class="small" style="margin-right:1.4rem;">+ New quote</a></div>
+          <partial name="_QuoteTable" model="quotes" />
+        </div>
+
+        <form method="post" action="/deals/@Model.Id/delete" data-confirm="Delete this deal? Its quotes and activities are kept but unlinked. Won/lost history will no longer include it.">
+          @Html.AntiForgeryToken()
+          <button type="submit" class="btn btn-danger btn-sm">Delete deal</button>
+        </form>
+      </div>
+      <div>
+        <partial name="_ActivityPanel" model="activityPanel" />
+      </div>
+    </div>
+  </div>
+</section>

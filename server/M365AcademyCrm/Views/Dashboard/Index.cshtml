@@ -1,0 +1,198 @@
+@model DashboardModel
+@inject CurrentUser CurrentUser
+@{
+    var me = await CurrentUser.GetAsync();
+    var maxStage = Model.Stages.Count == 0 ? 0 : Model.Stages.Max(s => s.Value);
+    var nowUtc = DateTime.UtcNow;
+    var firstName = me?.DisplayName.Split(' ')[0];
+}
+
+<section class="page-header compact">
+  <div class="container page-header-row">
+    <div>
+      <span class="eyebrow">Sales dashboard</span>
+      <h1>@(firstName is null ? "Welcome" : $"Hi {firstName}")</h1>
+      <p>@Ui.ToUk(DateTime.UtcNow).ToString("dddd d MMMM yyyy")</p>
+    </div>
+    <div class="page-actions">
+      <a href="/leads/new" class="btn btn-light btn-sm">+ Lead</a>
+      <a href="/deals/new" class="btn btn-light btn-sm">+ Deal</a>
+      <a href="/contacts/new" class="btn btn-outline btn-sm">+ Contact</a>
+    </div>
+  </div>
+</section>
+
+<section class="app-section">
+  <div class="container">
+    <partial name="_Flash" />
+
+    <div class="stat-grid">
+      <a class="stat-tile" href="/deals">
+        <div class="stat-label">Open pipeline</div>
+        <div class="stat-value">@Ui.Money(Model.OpenPipeline)</div>
+        <div class="stat-sub">@Model.OpenDeals open deal@(Model.OpenDeals == 1 ? "" : "s")</div>
+      </a>
+      <a class="stat-tile" href="/reports#forecast">
+        <div class="stat-label">Weighted forecast</div>
+        <div class="stat-value">@Ui.Money(Model.WeightedPipeline)</div>
+        <div class="stat-sub">Value &times; win probability</div>
+      </a>
+      <a class="stat-tile" href="/deals/list?stage=Won">
+        <div class="stat-label">Won this month</div>
+        <div class="stat-value">@Ui.Money(Model.WonThisMonth)</div>
+        <div class="stat-sub">@Model.WonThisMonthCount deal@(Model.WonThisMonthCount == 1 ? "" : "s") &middot; @Ui.Money(Model.WonThisYear) this year</div>
+      </a>
+      <a class="stat-tile" href="/leads?status=New">
+        <div class="stat-label">New leads (7 days)</div>
+        <div class="stat-value">@Model.NewLeadsThisWeek</div>
+        <div class="stat-sub">@Model.UnassignedLeads open lead@(Model.UnassignedLeads == 1 ? "" : "s") unassigned</div>
+      </a>
+      <a class="stat-tile @(Model.MyOverdueTasks > 0 ? "stat-alert" : "")" href="/tasks">
+        <div class="stat-label">My overdue tasks</div>
+        <div class="stat-value">@Model.MyOverdueTasks</div>
+        <div class="stat-sub">@(Model.MyOverdueTasks > 0 ? "Needs attention" : "All caught up")</div>
+      </a>
+    </div>
+
+    <div class="dash-grid">
+      <div>
+        <div class="panel">
+          <div class="panel-header"><h2>My tasks (next 7 days)</h2><a href="/tasks" class="small">All tasks &raquo;</a></div>
+          @if (Model.MyTasks.Count == 0)
+          {
+            <p class="empty">No open tasks due in the next week.</p>
+          }
+          else
+          {
+            <ul class="task-list">
+              @foreach (var t in Model.MyTasks)
+              {
+                var overdue = t.DueAtUtc < nowUtc;
+                <li>
+                  <div>
+                    <div class="task-title">@t.Subject</div>
+                    <div class="small muted">
+                      <span class="@(overdue ? "is-overdue" : "")">@(overdue ? "Overdue: " : "Due ")@Ui.DateTimeText(t.DueAtUtc!.Value)</span>
+                      <partial name="_RelatedLinks" model="t" />
+                    </div>
+                  </div>
+                  <form method="post" action="/activities/@t.Id/complete" class="inline-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnUrl" value="/" />
+                    <button type="submit" class="btn btn-ghost btn-xs">Done</button>
+                  </form>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>New leads</h2><a href="/leads?status=New" class="small">All new leads &raquo;</a></div>
+          @if (Model.RecentLeads.Count == 0)
+          {
+            <p class="empty">No new leads waiting - nice.</p>
+          }
+          else
+          {
+            <ul class="task-list">
+              @foreach (var l in Model.RecentLeads)
+              {
+                <li>
+                  <div>
+                    <div class="task-title"><a href="/leads/@l.Id">@l.Name</a>@(l.Company is null ? "" : $" · {l.Company}")</div>
+                    <div class="small muted">@Ui.Display(l.Source) &middot; @(l.CourseOfInterest ?? "General enquiry") &middot; @Ui.Ago(l.CreatedAtUtc)</div>
+                  </div>
+                  @if (l.OwnerId is null)
+                  {
+                    <form method="post" action="/leads/@l.Id/assign-to-me" class="inline-form">
+                      @Html.AntiForgeryToken()
+                      <input type="hidden" name="returnUrl" value="/" />
+                      <button type="submit" class="btn btn-ghost btn-xs">Take it</button>
+                    </form>
+                  }
+                  else
+                  {
+                    <span class="small muted">@l.Owner?.DisplayName</span>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+
+      <div>
+        <div class="panel">
+          <div class="panel-header"><h2>Pipeline by stage</h2><a href="/deals" class="small">Open board &raquo;</a></div>
+          <div class="bar-chart" aria-hidden="true">
+            @foreach (var s in Model.Stages)
+            {
+              var pct = maxStage == 0 ? 0 : (double)(s.Value / maxStage) * 100;
+              <div class="bar-row" title="@Ui.Display(s.Stage): @s.Count deals, @Ui.Money(s.Value) (@Ui.Money(s.Weighted) weighted)">
+                <span class="bar-label">@Ui.Display(s.Stage)</span>
+                <span class="bar-track"><span class="bar-fill" style="display:block;width:@pct.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%"></span></span>
+                <span class="bar-value">@Ui.Money(s.Value)</span>
+              </div>
+            }
+          </div>
+          <table class="admin-table">
+            <thead><tr><th>Stage</th><th class="num">Deals</th><th class="num">Value</th><th class="num">Weighted</th></tr></thead>
+            <tbody>
+              @foreach (var s in Model.Stages)
+              {
+                <tr><td>@Ui.Display(s.Stage)</td><td class="num">@s.Count</td><td class="num">@Ui.Money(s.Value)</td><td class="num">@Ui.Money(s.Weighted)</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Expected to close in the next 30 days</h2></div>
+          @if (Model.ClosingSoon.Count == 0)
+          {
+            <p class="empty">Nothing due to close in the next 30 days.</p>
+          }
+          else
+          {
+            <ul class="task-list">
+              @foreach (var d in Model.ClosingSoon)
+              {
+                var late = d.ExpectedCloseDate < Ui.TodayUk;
+                <li>
+                  <div>
+                    <div class="task-title"><a href="/deals/@d.Id">@d.Title</a></div>
+                    <div class="small muted"><span class="badge @Ui.BadgeClass(d.Stage)" style="font-size:0.62rem;">@Ui.Display(d.Stage)</span> <span class="@(late ? "is-overdue" : "")">@(late ? "Was due " : "")@Ui.Date(d.ExpectedCloseDate)</span> &middot; @(d.Owner?.DisplayName ?? "Unassigned")</div>
+                  </div>
+                  <span class="board-card-value">@Ui.Money(d.Value)</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><h2>Recent activity</h2></div>
+          @if (Model.RecentActivity.Count == 0)
+          {
+            <p class="empty">No activity logged yet.</p>
+          }
+          else
+          {
+            <ul class="task-list">
+              @foreach (var a in Model.RecentActivity)
+              {
+                <li>
+                  <div>
+                    <div class="task-title"><span class="badge badge-neutral" style="font-size:0.62rem;">@a.Type</span> @a.Subject</div>
+                    <div class="small muted">@Ui.Ago(a.CreatedAtUtc) &middot; @(a.Owner?.DisplayName ?? "System") <partial name="_RelatedLinks" model="a" /></div>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
