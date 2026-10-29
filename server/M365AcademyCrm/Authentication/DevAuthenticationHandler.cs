@@ -8,10 +8,13 @@ using Microsoft.Extensions.Options;
 namespace M365AcademyCrm.Authentication;
 
 /// <summary>
-/// Development only (Crm:DevAuth = true in the Development environment):
-/// authenticates every request as a local admin, so the CRM can be run and
-/// clicked through without an Entra app registration. Program.cs refuses to
-/// register this outside Development.
+/// Local development only: authenticates requests as a local admin, so the
+/// CRM can be clicked through before an Entra app registration exists.
+/// Three independent guards, so no single mistake opens it up:
+/// it's off unless Crm:DevAuth is deliberately set (user-secrets or an
+/// environment variable - never committed config), Program.cs only
+/// registers it in the Development environment, and it only ever signs in
+/// requests from this machine (loopback), never over the network.
 /// </summary>
 public class DevAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
@@ -25,6 +28,12 @@ public class DevAuthenticationHandler : AuthenticationHandler<AuthenticationSche
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        var remoteIp = Context.Connection.RemoteIpAddress;
+        if (remoteIp is null || !System.Net.IPAddress.IsLoopback(remoteIp))
+        {
+            return AuthenticateResult.NoResult();
+        }
+
         var db = Context.RequestServices.GetRequiredService<CrmDbContext>();
         var store = Context.RequestServices.GetRequiredService<SalesUserStore>();
         if (!db.SalesUsers.Any(u => u.ObjectId == ObjectId))

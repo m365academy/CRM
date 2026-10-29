@@ -21,6 +21,22 @@ body {
   background: var(--color-bg-alt);
 }
 
+/* ---- Development sign-in warning ------------------------------------------ */
+.dev-auth-banner {
+  background: var(--color-bad);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 0.5rem 1rem;
+}
+
+.dev-auth-banner code {
+  background: rgba(255, 255, 255, 0.18);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+}
+
 /* ---- Header ------------------------------------------------------------- */
 .site-header .brand-logo {
   height: 46px;

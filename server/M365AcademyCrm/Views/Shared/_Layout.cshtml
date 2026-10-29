@@ -26,6 +26,13 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
+  @if (User.Identity?.AuthenticationType == DevAuthenticationHandler.SchemeName)
+  {
+    <div class="dev-auth-banner" role="alert">
+      Development sign-in is on: you're signed in as a fake admin without Entra ID. This only works on this machine - turn it off with <code>dotnet user-secrets remove "Crm:DevAuth"</code>.
+    </div>
+  }
+
   <header class="site-header">
     <div class="container nav">
       <a href="/" class="brand">

@@ -132,9 +132,25 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-if (useDevAuth && !app.Environment.IsDevelopment())
+var devAuthActive = useDevAuth && app.Environment.IsDevelopment();
+if (useDevAuth && !devAuthActive)
 {
     app.Logger.LogWarning("Crm:DevAuth is set but ignored outside the Development environment - using Entra ID sign-in.");
+}
+else if (devAuthActive)
+{
+    app.Logger.LogWarning("Crm:DevAuth is ON: requests from this machine are signed in as a local admin without Entra ID. Development only.");
+}
+
+// Fail closed until Entra is configured: with no app registration (and no
+// dev sign-in), every page answers "sign-in not configured" rather than
+// attempting a sign-in that can't work. The server-to-server APIs (lead
+// intake, health) don't use Entra and keep working.
+static bool IsSet(string? value) => !string.IsNullOrWhiteSpace(value) && value != "CHANGE_ME";
+var entraConfigured = IsSet(app.Configuration["AzureAd:TenantId"]) && IsSet(app.Configuration["AzureAd:ClientId"]);
+if (!devAuthActive && !entraConfigured)
+{
+    app.Logger.LogError("AzureAd:TenantId / AzureAd:ClientId are not configured - the CRM will refuse all page requests until they are. See README.md.");
 }
 
 // Database setup - guarded like the website's LMS migration: left at the
@@ -169,6 +185,32 @@ app.UseStatusCodePagesWithReExecute("/not-found");
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+if (!devAuthActive && !entraConfigured)
+{
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            await next();
+            return;
+        }
+
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.WriteAsync("""
+            <!doctype html>
+            <html lang="en-GB"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <meta name="robots" content="noindex, nofollow" /><title>Sign-in not configured | M365 Academy CRM</title>
+            <link rel="stylesheet" href="/css/styles.css" /><link rel="stylesheet" href="/css/crm.css" /></head>
+            <body><section class="section"><div class="container error-page"><div>
+            <span class="eyebrow">Not configured</span>
+            <h1>Sign-in isn't set up yet</h1>
+            <p class="muted">The CRM needs its Entra ID app registration (AzureAd:TenantId and AzureAd:ClientId) before anyone can sign in.<br />See "One-time Entra ID setup" in the README.</p>
+            </div></div></section></body></html>
+            """);
+    });
+}
 
 app.UseRouting();
 

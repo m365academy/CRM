@@ -187,17 +187,27 @@ dotnet ef migrations add <Name>
 
 ## Running locally
 
-Needs the .NET 10 SDK. No Entra app or SQL Server is needed:
-`appsettings.Development.json` turns on **DevAuth** (every request is a
-local admin, "Dev User") and a throwaway **SQLite** file (`crm-dev.db`,
-created from the model on startup). Both are refused outside the
-Development environment.
+Needs the .NET 10 SDK. In Development, `appsettings.Development.json` uses a
+throwaway **SQLite** file (`crm-dev.db`, created from the model on startup),
+so no SQL Server is needed. Sign-in still needs Entra: until `AzureAd:TenantId`
+and `AzureAd:ClientId` are set, every page answers "Sign-in isn't set up yet"
+(the lead intake API and health check still work).
+
+To click around **before** the app registration exists, turn on the
+development sign-in **on your own machine only**:
 
 ```bash
 cd server/M365AcademyCrm
+dotnet user-secrets set "Crm:DevAuth" "true"     # off again: dotnet user-secrets remove "Crm:DevAuth"
 dotnet run
 # http://localhost:5191
 ```
+
+It signs you in as a fake admin ("Dev User") and shows a red banner on every
+page while it's on. Three independent guards keep it from ever being a way in:
+it's never on in committed config (only your user-secrets or an environment
+variable), it's ignored outside the Development environment, and it only
+accepts requests from the same machine (loopback), never over the network.
 
 Send it a test lead the way the website does:
 
@@ -207,8 +217,9 @@ curl -X POST http://localhost:5191/api/leads -H "Content-Type: application/json"
   -d '{"name":"Jo Bloggs","email":"jo@contoso.co.uk","courseOfInterest":"AZ-104","message":"6 admins need AZ-104 in Q1"}'
 ```
 
-To test real Entra sign-in locally, set `Crm:DevAuth` to `false` and
-`Database:Provider` to `SqlServer` in user-secrets, along with the settings above.
+To test real Entra sign-in locally, remove `Crm:DevAuth` and set the AzureAd
+settings above in user-secrets (optionally `Database:Provider` = `SqlServer`
+and a real connection string).
 
 ## Deploying to crm.m365academy.cloud
 
